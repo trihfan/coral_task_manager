@@ -16,15 +16,29 @@ namespace coral::task_manager
     class WorkStealingQueue
     {
     public:
+
+        /*Task* allocate()
+        {
+            int64_t currentBottom = bottom.load(std::memory_order_relaxed);
+	        return tasks[currentBottom & MASK];
+        }
+
+        void commit()
+        {
+            int64_t currentBottom = bottom.load(std::memory_order_relaxed);
+            std::atomic_thread_fence(std::memory_order_release);
+            bottom.store(currentBottom + 1, std::memory_order_relaxed);
+        }*/
+
         // Push a task to the queue
         void push(Task* task)
         {
             int64_t currentBottom = bottom.load(std::memory_order_relaxed);
-            tasks[currentBottom & MASK] = task;
+            tasks[currentBottom & maxTaskCountMask] = task;
         
             // ensure the job is written before b+1 is published to other threads.
             // on x86/64, a compiler barrier is enough.
-            std::atomic_signal_fence(std::memory_order_seq_cst);
+            std::atomic_thread_fence(std::memory_order_release);
         
             bottom.store(currentBottom + 1, std::memory_order_relaxed);
         }
@@ -32,28 +46,28 @@ namespace coral::task_manager
         // Pop a task from the queue
         Task* pop()
         {
-            int64_t currentBottom = bottom - 1;
-            bottom.store(currentBottom, std::memory_order_seq_cst);
-
+            int64_t currentBottom = bottom.load(std::memory_order_relaxed) - 1;
+            bottom.store(currentBottom, std::memory_order_relaxed);
+            std::atomic_thread_fence(std::memory_order_seq_cst);
             int64_t currentTop = top.load(std::memory_order_relaxed);
-            if (currentTop <= currentBottom)
+
+            if (currentTop < currentBottom)
             {
                 // non-empty queue
-                Task* task = tasks[currentBottom & MASK];
-                if (currentTop != currentBottom)
-                {
-                    // there's still more than one item left in the queue
-                    return task;
-                }
-        
+                return tasks[currentBottom & maxTaskCountMask];
+            }
+            else if(currentTop == currentBottom)
+            {
                 // this is the last item in the queue
-                if (!top.compare_exchange_strong(currentTop, currentTop + 1, std::memory_order_seq_cst, std::memory_order_seq_cst))
+                Task* task = tasks[currentBottom & maxTaskCountMask];
+                const int64_t desired = currentTop + 1;
+                if (!top.compare_exchange_strong(currentTop, desired, std::memory_order_seq_cst, std::memory_order_relaxed))
                 {
                     // failed race against steal operation
                     task = nullptr;
                 }
-        
-                bottom.store(currentTop + 1, std::memory_order_relaxed);
+
+                bottom.store(desired, std::memory_order_relaxed);
                 return task;
             }
             else
@@ -68,19 +82,19 @@ namespace coral::task_manager
         Task* steal()
         {
             int64_t currentTop = top.load(std::memory_order_relaxed);
-
+ 
             // ensure that top is always read before bottom.
             // loads will not be reordered with other loads on x86, so a compiler barrier is enough.
-            std::atomic_signal_fence(std::memory_order_seq_cst);
-
+            std::atomic_thread_fence(std::memory_order_seq_cst);
+        
             int64_t currentBottom = bottom.load(std::memory_order_relaxed);
-
-            // Is there somtehing in the queue
             if (currentTop < currentBottom)
             {
-                Task* task = tasks[currentTop & MASK];
+                // non-empty queue
+                Task* task = tasks[currentTop & maxTaskCountMask];
         
-                if (!top.compare_exchange_strong(currentTop, currentTop + 1, std::memory_order_seq_cst, std::memory_order_seq_cst))
+                // the interlocked function serves as a compiler barrier, and guarantees that the read happens before the CAS.
+                if (!top.compare_exchange_strong(currentTop, currentTop + 1, std::memory_order_seq_cst, std::memory_order_relaxed))
                 {
                     // a concurrent steal or pop operation removed an element from the deque in the meantime.
                     return nullptr;
@@ -96,9 +110,7 @@ namespace coral::task_manager
         }
 
     private:
-        static constexpr uint32_t NUMBER_OF_TASKS = 4096u;
-        static constexpr uint32_t MASK = NUMBER_OF_TASKS - 1u;
-        std::array<Task*, NUMBER_OF_TASKS> tasks;
+        std::array<Task*, maxTaskCount> tasks;
         std::atomic<int64_t> top { 0 };
         std::atomic<int64_t> bottom { 0 };
     };
@@ -109,31 +121,28 @@ namespace coral::task_manager
     public:
         static void clear()
         {
-            queues.clear();
+            delete[] queues;
+            queues = nullptr;
         }
 
         static size_t size()
         {
-            return queues.size();
+            return count;
         }
 
-        static void resize(size_t size)
+        static void init(size_t size)
         {
-            // Fill missing
-            for (size_t i = queues.size(); i < size; i++)
-            {
-                queues.push_back(std::make_unique<WorkStealingQueue>());
-            }
-            // Limit to size
-            queues.resize(size);
+            count = size;
+            queues = new WorkStealingQueue[size];
         }
 
         static WorkStealingQueue* get(size_t index)
         {
-            return queues[index].get();
+            return &queues[index];
         }
 
     private:
-        inline static std::vector<std::unique_ptr<WorkStealingQueue>> queues;
+        inline static size_t count = 0;
+        inline static WorkStealingQueue* queues = nullptr;
     };
 }

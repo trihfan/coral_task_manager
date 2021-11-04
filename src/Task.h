@@ -8,7 +8,7 @@
 namespace coral::task_manager
 {
     struct Task;
-    typedef void (*task_function)(const void*);
+    typedef void (*task_function)(Task*, const void*);
     static constexpr int DATA_SIZE = taskSizeBytes - sizeof(task_function) - sizeof(Task*) - sizeof(std::atomic<int32_t>);
 
     /**
@@ -32,7 +32,8 @@ namespace coral::task_manager
         static Task* allocateTask() 
         {
             const uint32_t index = currentIndex++;
-            return &taskBuffer[(index - 1u) & (maxTaskCount - 1u)];
+            assert(taskBuffer[index & maxTaskCountMask].remaining == 0);
+            return &taskBuffer[index & maxTaskCountMask];
         }
 
         inline static thread_local std::array<Task, maxTaskCount> taskBuffer;
@@ -41,10 +42,10 @@ namespace coral::task_manager
 
     inline bool isFinished(const Task* task)
     {
-        return task->remaining.load(std::memory_order_relaxed) == 0;
+        return task->remaining.load(std::memory_order_relaxed) <= 0;
     }
 
-    // Create an empty task
+    // Create task
     template <typename... Args>
     Task* createTask(task_function function, Args&&... args)
     {
@@ -58,9 +59,10 @@ namespace coral::task_manager
 
     inline Task* createTask() 
     { 
-        return createTask([](auto){}); 
+        return createTask([](auto, auto){}); 
     } 
 
+    // Create child task
     inline Task* createChildTask(Task* parent, task_function function)
     {
         auto task = createTask(function);
@@ -77,4 +79,12 @@ namespace coral::task_manager
         return task;
     }
 
+    // Create and run
+    template <typename... Args>
+    Task* createAndRunTask(Args&&... args)
+    {
+        auto task = createTask(std::forward<Args>(args)...);
+        run(task);
+        return task;
+    }
 }

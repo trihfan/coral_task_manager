@@ -9,8 +9,8 @@
 
 // Usage
 /*
-task_manager::TaskManager::start();
-task_manager::TaskManager::stop();
+task_manager::start();
+task_manager::stop();
 
 task_manager::createTask();
 task_manager::createChildTask();

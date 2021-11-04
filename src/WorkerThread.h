@@ -7,7 +7,7 @@
 #include "Random.h"
 #include "Task.h"
 
-#define YIELD std::this_thread::sleep_for(std::chrono::milliseconds(0));
+#define YIELD std::this_thread::yield();
 
 namespace coral::task_manager
 {
@@ -71,11 +71,10 @@ namespace coral::task_manager
         {
             auto queue = getWorkStealingQueue();
             Task* task = queue->pop();
-
             if (!task)
             {
                 // this is not a valid job because our own queue is empty, so try stealing from some other queue
-                auto index = random() % WorkStealingQueues::size();
+                auto index = Random<task_manager::Xoshiro256plus>::random() % WorkStealingQueues::size();
                 WorkStealingQueue* stealQueue = WorkStealingQueues::get(index);
                 if (stealQueue == queue)
                 {
@@ -101,7 +100,9 @@ namespace coral::task_manager
         // Execute the given task
         static void finish(Task* task)
         {
-            if (task->remaining.fetch_sub(1, std::memory_order_relaxed) == 1 && task->parent)
+            const int remaining = task->remaining.fetch_sub(1, std::memory_order_relaxed);
+            assert(remaining > 0);
+            if (remaining == 1 && task->parent)
             {
                 finish(task->parent);
             }
@@ -109,7 +110,7 @@ namespace coral::task_manager
 
         static void execute(Task* task)
         {
-            (task->function)(task->data);
+            (task->function)(task, task->data);
             finish(task);
         }
 
