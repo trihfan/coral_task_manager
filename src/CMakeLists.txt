@@ -1,11 +1,8 @@
-# project
-project(coral_task_manager LANGUAGES CXX)
+# List the sources
+file(GLOB_RECURSE sources ${CMAKE_CURRENT_SOURCE_DIR}/*.h ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
-# sources
-add_library(coral_task_manager INTERFACE)
+# Configure lib
+add_library(coral_task_manager ${sources})
+target_include_directories(coral_task_manager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-# includes
-target_include_directories(coral_task_manager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-
-# directory
-set_target_properties(coral_task_manager PROPERTIES FOLDER "coral/task_manager")
+# Install headers

@@ -1,1 +1,0 @@
-set_test(benchmark)

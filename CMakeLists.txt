@@ -1,23 +1,17 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.22)
 
-# project
-set(version "1.0.0")
+# Options
+option(BUILD_TESTS "Build the tests" OFF)
+OPTION(BUILD_SHARED_LIBS "Build as shared library" ON)
+
+# Project config
 project(coral_task_manager LANGUAGES CXX)
-
-# set c++17
+set(CMAKE_UNITY_BUILD ON)
 set(CMAKE_CXX_STANDARD 17)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 
-# modules
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
-
-# options
-option(BUILD_TESTS "build the tests" OFF)
-
-# task manager lib
+# Add src and test
 add_subdirectory(src)
-
-# tests
 if(BUILD_TESTS)
-    include(set_test)
-    add_subdirectory(tests)
+    add_subdirectory(test)
 endif()
