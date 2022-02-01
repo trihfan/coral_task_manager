@@ -3,22 +3,20 @@
 
 namespace coral::task_manager
 {
-    /**
-     * Random wrapper using the given Generator
-     */
+    // Random wrapper using the given generator
     template<typename Generator>
-    class Random
+    class random
     {
     public:
         // Initialize the generator with the given seed
         inline static void init(uint64_t seed) { return Generator::init(seed); }
 
         // Return a random number
-        inline static uint64_t random() { return Generator::next(); }
+        inline static uint64_t next() { return Generator::next(); }
     };
 
     // SplitMix64 generator
-    class SplitMix64
+    class split_mix_64
     {
     public:
         static void init(uint64_t seed);
@@ -29,7 +27,7 @@ namespace coral::task_manager
     };
 
     // Xoshiro256+ generator
-    class Xoshiro256plus
+    class xoshiro_256_plus
     {
     public:
         static void init(uint64_t seed);

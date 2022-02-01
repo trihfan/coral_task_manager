@@ -4,9 +4,9 @@
 namespace coral::task_manager
 {
     template <typename Type>
-    struct function_traits : public function_traits<decltype(&Type::operator())>
-    {};
+    struct function_traits : public function_traits<decltype(&Type::operator())> {};
 
+    // Get function traits from template
     template <typename ClassType, typename ReturnType, typename... Args>
     struct function_traits<ReturnType(ClassType::*)(Args...) const>
     {
@@ -18,5 +18,8 @@ namespace coral::task_manager
 
         // Function arguments as a tuple
         using arguments = std::tuple<Args...>;
+
+        // Function class
+        using Class = ClassType;
     };
 }

@@ -12,13 +12,13 @@ namespace coral::task_manager
     struct Task;
 
     /**
-     * The WorkerThread class encapsulate a std::thread used to run the tasks
+     * The worker_thread class encapsulate a std::thread used to run the tasks
      */
-    class WorkerThread
+    class worker_thread
     {
     public:
         // Construction
-        WorkerThread(int index);
+        worker_thread(int index);
 
         // Start the thread
         void run();
@@ -32,17 +32,17 @@ namespace coral::task_manager
 
         //----------------------------------------------------------------
         // Return the current thread index
-        static int getThreadIndex();
+        static int get_thread_index();
         
         // Return the work stealing queue of the current thread
-        static WorkStealingQueue* getWorkStealingQueue();
+        static work_stealing_queue* get_work_stealing_queue();
 
         // Return the next task in the queue or null if any
-        static task* getTask();
+        static task_t get_task();
 
         // Execute the given task
-        static void finish(task* task);
-        static void execute(task* task);
+        static void finish(task_t task);
+        static void execute(task_t task);
 
     private:
         // Thread index
@@ -55,6 +55,6 @@ namespace coral::task_manager
         std::unique_ptr<std::thread> thread;
 
         // Thread local value containing the thread index
-        inline static thread_local int threadIndex = 0;
+        inline static thread_local int thread_index = 0;
     };
 }

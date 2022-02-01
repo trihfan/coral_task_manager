@@ -1,14 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
-#include "coral_task_manager.h"
 #include <chrono>
 #include <iostream>
 #include <future>
-#include <cmath>
-
-//------------------------
-#include <type_traits>
-#include <tuple>
+#include "coral_task_manager.h"
 
 using namespace std::chrono;
 using namespace coral;
@@ -16,8 +11,8 @@ using namespace coral;
 class TestFixture 
 {
 public:
-    TestFixture() { task_manager::TaskManager::start(); }
-    ~TestFixture() { task_manager::TaskManager::stop(); }
+    TestFixture() { task_manager::manager::start(); }
+    ~TestFixture() { task_manager::manager::stop(); }
 };
 
 // Benchmark to check implementation is not slower than async
@@ -60,7 +55,7 @@ TEST_CASE("Benchmark thread overhead")
 
     // --------------------------------------------
     // Using task_manager
-    task_manager::TaskManager::start(benchmark_thread_count);
+    task_manager::manager::start(benchmark_thread_count);
     start = steady_clock::now();
 
     // Start threads
@@ -81,7 +76,7 @@ TEST_CASE("Benchmark thread overhead")
     // Get time
     auto time_for_task_manager = steady_clock::now() - start;
     std::cout << "time for task_manager: " << duration_cast<microseconds>(time_for_task_manager).count() / 1000. << "ms" << std::endl;
-    task_manager::TaskManager::stop();
+    task_manager::manager::stop();
 
     // Verify time
     CHECK(time_for_task_manager <= time_for_future);
@@ -138,4 +133,48 @@ TEST_CASE_FIXTURE(TestFixture, "BatchTasks")
     {
         CHECK(value == 2);
     }
+}
+
+TEST_CASE_FIXTURE(TestFixture, "LambdaTest1")
+{
+    auto parent = task_manager::create_task();
+    auto last = parent;
+    int total = 2;
+    std::vector<task_manager::task_t> tasks;
+    for (int i = 0; i < 10; i++)
+    {
+        last = task_manager::create_child_task(last, [](int* total, int value) 
+        {
+            *total += value;
+        }, &total, i);
+        tasks.push_back(last);
+    }
+
+    for (auto task : tasks)
+    {
+        task_manager::run(task);
+    }
+
+    task_manager::run(parent);
+    task_manager::wait(parent);
+    CHECK(total == 47);
+}
+
+TEST_CASE_FIXTURE(TestFixture, "LambdaTest2")
+{
+    int total = 2;
+    auto first = task_manager::create_task([&total](int value) 
+    {
+        total += value;
+    }, 1);
+
+    auto second = task_manager::create_child_task(first, [&total](int value) 
+    {
+        total += 2 * value;
+    }, 1);
+
+    task_manager::run(second);
+    task_manager::run(first);
+    task_manager::wait(first);
+    CHECK(total == 5);
 }

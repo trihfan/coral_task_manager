@@ -4,19 +4,19 @@
 
 using namespace coral::task_manager;
 
-WorkerThread::WorkerThread(int index) : index(index) 
+worker_thread::worker_thread(int index) : index(index) 
 {
 }
 
-void WorkerThread::run()
+void worker_thread::run()
 {
     thread = std::make_unique<std::thread>([this]()
     {
-        Random<Xoshiro256plus>::init(std::hash<std::thread::id>{}(std::this_thread::get_id()));
-        threadIndex = index;
+        random<xoshiro_256_plus>::init(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+        thread_index = index;
         while (!cancelled.load(std::memory_order_relaxed))
         {
-            auto task = getTask();
+            auto task = get_task();
             if (task)
             {
                 execute(task);
@@ -25,12 +25,12 @@ void WorkerThread::run()
     });
 }
 
-void WorkerThread::cancel()
+void worker_thread::cancel()
 {
     cancelled.store(true, std::memory_order_relaxed);
 }
 
-void WorkerThread::join()
+void worker_thread::join()
 {
     if (thread)
     {
@@ -38,25 +38,25 @@ void WorkerThread::join()
     }
 }
 
-int WorkerThread::getThreadIndex() 
+int worker_thread::get_thread_index() 
 { 
-    return threadIndex; 
+    return thread_index; 
 }
         
-WorkStealingQueue* WorkerThread::getWorkStealingQueue()
+work_stealing_queue* worker_thread::get_work_stealing_queue()
 {
-    return WorkStealingQueues::get(WorkerThread::getThreadIndex());
+    return work_stealing_queues::get(worker_thread::get_thread_index());
 }
 
-task* WorkerThread::getTask()
+task_t worker_thread::get_task()
 {
-    auto queue = getWorkStealingQueue();
+    auto queue = get_work_stealing_queue();
     auto task = queue->pop();
     if (!task)
     {
         // this is not a valid job because our own queue is empty, so try stealing from some other queue
-        auto index = Random<task_manager::Xoshiro256plus>::random() % WorkStealingQueues::size();
-        WorkStealingQueue* stealQueue = WorkStealingQueues::get(index);
+        auto index = random<task_manager::xoshiro_256_plus>::next() % work_stealing_queues::size();
+        auto stealQueue = work_stealing_queues::get(index);
         if (stealQueue == queue)
         {
             // don't try to steal from ourselves
@@ -78,7 +78,7 @@ task* WorkerThread::getTask()
     return task;
 }
 
-void WorkerThread::finish(task* task)
+void worker_thread::finish(task_t task)
 {
     const int remaining = task->remaining.fetch_sub(1, std::memory_order_relaxed);
     assert(remaining > 0);
@@ -88,7 +88,7 @@ void WorkerThread::finish(task* task)
     }
 }
 
-void WorkerThread::execute(task* task)
+void worker_thread::execute(task_t task)
 {
     (task->function)(task, task->data);
     finish(task);

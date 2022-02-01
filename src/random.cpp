@@ -2,12 +2,12 @@
 
 using namespace coral::task_manager;
 
-void SplitMix64::init(uint64_t seed)
+void split_mix_64::init(uint64_t seed)
 {
     x = seed;
 }
 
-uint64_t SplitMix64::next()
+uint64_t split_mix_64::next()
 {
     
     uint64_t z = (x += UINT64_C(0x9E3779B97F4A7C15));
@@ -16,16 +16,16 @@ uint64_t SplitMix64::next()
     return z ^ (z >> 31);
 }
 
-void Xoshiro256plus::init(uint64_t seed)
+void xoshiro_256_plus::init(uint64_t seed)
 {
-    Random<SplitMix64>::init(seed);
-    s[0] = Random<SplitMix64>::random();
-    s[1] = Random<SplitMix64>::random();
-    s[2] = Random<SplitMix64>::random();
-    s[3] = Random<SplitMix64>::random();
+    random<split_mix_64>::init(seed);
+    s[0] = random<split_mix_64>::next();
+    s[1] = random<split_mix_64>::next();
+    s[2] = random<split_mix_64>::next();
+    s[3] = random<split_mix_64>::next();
 }
 
-uint64_t Xoshiro256plus::next() 
+uint64_t xoshiro_256_plus::next() 
 {
     const uint64_t result = s[0] + s[3];
     const uint64_t t = s[1] << 17;
@@ -42,7 +42,7 @@ uint64_t Xoshiro256plus::next()
     return result;
 }
 
-uint64_t Xoshiro256plus::rotl(const uint64_t x, int k) 
+uint64_t xoshiro_256_plus::rotl(const uint64_t x, int k) 
 {
     return (x << k) | (x >> (64 - k));
 }

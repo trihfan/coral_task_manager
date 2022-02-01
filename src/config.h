@@ -1,25 +1,37 @@
 #pragma once
+#include <cstdint>
 
 // config
-#ifndef MAX_TASK_COUNT
-#define MAX_TASK_COUNT 4096
-#endif
-
-#ifndef TASK_SIZE_BYTES
-#define TASK_SIZE_BYTES 64
-#endif
-
-// config
-namespace coral::task_manager::config
+namespace coral::task_manager
 {
-    /*struct config
+    struct config
     {
-        uint32_t max_task_count;
-        uint32_t task_memory_size;
-    };*/
-    static constexpr uint32_t maxTaskCount = MAX_TASK_COUNT;
-    static constexpr uint32_t taskSizeBytes = TASK_SIZE_BYTES;
-    static constexpr uint32_t maxTaskCountMask = MAX_TASK_COUNT - 1u;
+        // Const parameters
+        static constexpr uint32_t task_size_bytes = 64;
 
-    static_assert(maxTaskCount % 2 == 0, "MAX_TASK_COUNT must be a power of two");
+        // Maxmimum task count in the task manager
+        static void set_max_task_count(uint32_t count)
+        {
+            // max_task_count must be a power of two
+            assert(count % 2 == 0);
+            max_task_count = count;
+            max_task_count_mask = max_task_count - 1u;
+        }
+
+        // Return the max task count value
+        static uint32_t get_max_task_count()
+        {
+            return max_task_count;
+        }
+
+        // Return the max task count mask
+        static uint32_t get_max_task_count_mask()
+        {
+            return max_task_count_mask;
+        }
+
+    private:
+        inline static uint32_t max_task_count = 4096u;
+        inline static uint32_t max_task_count_mask = max_task_count - 1u;
+    };
 }

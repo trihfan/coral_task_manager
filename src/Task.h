@@ -1,19 +1,20 @@
 #pragma once
 #include <atomic>
 #include <array>
+#include <type_traits>
+#include <cstdint>
 #include "config.h"
 #include "argument_packer.h"
 #include "function_traits.h"
+#include "task_buffer.h"
 
 namespace coral::task_manager
 {
     struct task;
     typedef void (*task_function)(task*, const void*);
-    static constexpr int data_size = config::taskSizeBytes - sizeof(task_function) - sizeof(task*) - sizeof(std::atomic<int32_t>);
+    static constexpr int data_size = config::task_size_bytes - sizeof(task_function) - sizeof(task*) - sizeof(std::atomic<int32_t>);
 
-    /**
-     * The task struct, contains the function and the data
-     */
+    // The task struct, contains the function and the data
     struct task
     {
         task_function function;             // task function to execute
@@ -21,24 +22,11 @@ namespace coral::task_manager
         std::atomic<int32_t> remaining;     // remaining work for the task (current + children)
         char data[data_size];               // task data
     };
+    using task_t = task*;
 
     // asserts
-    static_assert(sizeof(task) == config::taskSizeBytes, "Wrong task size");
+    static_assert(sizeof(task) == config::task_size_bytes, "Wrong task size");
     static_assert(std::atomic<uint32_t>::is_always_lock_free, "uint32_t is not lock free");
-    
-    // task buffer
-    struct task_buffer
-    {
-        static task* allocate() 
-        {
-            const uint32_t i = index++;
-            assert(buffer[i & config::maxTaskCountMask].remaining == 0);
-            return &buffer[i & config::maxTaskCountMask];
-        }
-
-        inline static thread_local std::array<task, config::maxTaskCount> buffer;
-        inline static thread_local uint32_t index = 0;
-    };
 
     /************************************************************/
     // Call the function getting the arguments from the data buffer
@@ -49,12 +37,12 @@ namespace coral::task_manager
         function(task_manager::items::get<IndexSequence, std::tuple_element_t<IndexSequence, typename traits::arguments>...>(data)...);
     }
 
-    // Create task
+    // Create task executing a function with the given arguments
     template <typename Function, typename... Args>
-    task_manager::task* create_task(const Function function, Args... args)
+    task_t create_task(const Function function, Args... args)
     {
         static const thread_local auto copy = function;
-        task* task = task_buffer::allocate();
+        auto task = task_buffer::allocate();
         task->function = [](auto task, auto data) { apply(copy, data, std::make_index_sequence<sizeof...(Args)>{}); };
         task->parent = nullptr;
         task->remaining.store(1, std::memory_order_relaxed);
@@ -63,27 +51,18 @@ namespace coral::task_manager
     }
 
     // Helper to create batch
-    inline task* create_task() 
+    inline task_t create_task() 
     { 
         return create_task([](){}); 
     } 
 
     // Create child task
     template <typename Function, typename... Args>
-    task* create_child_task(task* parent, const Function function, Args&&... args)
+    task_t create_child_task(task_t parent, const Function function, Args&&... args)
     {
         auto task = create_task(function, std::forward<Args>(args)...);
         task->parent = parent;
         parent->remaining.fetch_add(1, std::memory_order::memory_order_relaxed);
-        return task;
-    }
-
-    // Create and run
-    template <typename... Args>
-    task* create_and_run_task(Args&&... args)
-    {
-        auto task = create_task(std::forward<Args>(args)...);
-        run(task);
         return task;
     }
 }

@@ -8,62 +8,59 @@
 
 namespace coral::task_manager
 {
-    class WorkerThread;
-
-    class TaskManager
+    // The actual task manager
+    class manager
     {
     public:
         static void start(int threadCount = std::thread::hardware_concurrency() - 1);
         static void stop();
 
     private:
-        inline static std::vector<std::unique_ptr<WorkerThread>> threads;
+        inline static std::vector<std::unique_ptr<worker_thread>> threads;
     };
 
     /************************************************************/
-    inline bool isFinished(const task* task)
+    inline bool is_finished(const task_t task)
     {
         return task->remaining.load(std::memory_order_relaxed) <= 0;
     }
 
     inline void start(int threadCount = std::thread::hardware_concurrency() - 1)
     {
-        TaskManager::start(threadCount);        
+        manager::start(threadCount);        
     }
 
     inline void stop()
     {
-        TaskManager::stop();        
+        manager::stop();        
     }
 
-    inline void run(task* task)
+    inline void run(task_t task)
     {
-        WorkStealingQueue* queue = WorkerThread::getWorkStealingQueue();
+        work_stealing_queue* queue = worker_thread::get_work_stealing_queue();
         queue->push(task);
     }
 
     namespace internal
     {
-        inline void wait() 
-        {
-        }
+        inline void wait() {}
 
         template <typename... Tasks>
-        inline void wait(task* task, Tasks&&... tasks)
+        inline void wait(task_t task, Tasks&&... tasks)
         {
-            while (!isFinished(task))
+            while (!is_finished(task))
             {
-                auto nextTask = WorkerThread::getTask();
+                auto nextTask = worker_thread::get_task();
                 if (nextTask)
                 {
-                    WorkerThread::execute(nextTask);
+                    worker_thread::execute(nextTask);
                 }
             }
             internal::wait(std::forward<Tasks>(tasks)...);
         }
     }
 
-    inline void wait(std::initializer_list<task*> tasks)
+    inline void wait(std::initializer_list<task_t> tasks)
     {
         for (auto task : tasks)
         {
@@ -72,13 +69,13 @@ namespace coral::task_manager
     }
 
     template <typename... Tasks>
-    inline void wait(task* task, Tasks&&... tasks)
+    inline void wait(task_t task, Tasks&&... tasks)
     {
         internal::wait(task, std::forward<Tasks>(tasks)...);
     }
 
     /*template <typename Type, typename Splitter>
-    Task* parallel_for(Type* data, size_t count, void (*function)(T*, size_t), const Splitter& splitter)
+    task_t parallel_for(Type* data, size_t count, void (*function)(T*, size_t), const Splitter& splitter)
     {
         typedef parallel_for_job_data<Type, Splitter> TaskData;
         const TaskData taskData(data, count, function, splitter);
@@ -101,7 +98,7 @@ namespace coral::task_manager
     };
 
     template <typename TaskData>
-    void parallel_for_task(Task* task, const void* taskData)
+    void parallel_for_task(task_t task, const void* taskData)
     {
         const TaskData* data = static_cast<const TaskData*>(jobData);
         const TaskData::SplitterType& splitter = data->splitter;
