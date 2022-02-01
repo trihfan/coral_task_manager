@@ -22,7 +22,7 @@ jobs:
     - name: create build folder
       run: mkdir build && cd build
     - name: install dependencies
-      run: ls && conan install ..
+      run: conan install ../conanfile.py
     - name: configure
       run: cmake .. -DBUILD_TESTS=ON
     - name: build
