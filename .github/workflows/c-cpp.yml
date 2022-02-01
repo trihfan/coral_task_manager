@@ -17,8 +17,12 @@ jobs:
       run: sudo apt install python3 python3-pip
     - name: install conan
       run: pip3 install conan
+    - name: create build folder
+      run: mkdir build && cd build
+    - name: install dependencies
+      run: conan install ..
     - name: configure
-      run: mkdir build && cd build && cmake .. -DBUILD_TESTS=ON
+      run: cmake .. -DBUILD_TESTS=ON
     - name: build
       run: cmake --build .
     - name: test
