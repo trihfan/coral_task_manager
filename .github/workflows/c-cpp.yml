@@ -14,9 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: configure
-      run: mkdir build
-      run: cd build
-      run: cmake .. -DBUILD_TESTS=ON
+      run: mkdir build && cd build && cmake .. -DBUILD_TESTS=ON
     - name: build
       run: cmake --build .
     - name: test
