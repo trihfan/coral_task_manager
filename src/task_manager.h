@@ -5,6 +5,7 @@
 #include "worker_thread.h"
 #include "random.h"
 #include "task.h"
+#include "api.h"
 
 namespace coral::task_manager
 {
@@ -12,8 +13,8 @@ namespace coral::task_manager
     class manager
     {
     public:
-        static void start(int threadCount = std::thread::hardware_concurrency() - 1);
-        static void stop();
+        api static void start(int threadCount = std::thread::hardware_concurrency() - 1);
+        api static void stop();
 
     private:
         inline static std::vector<std::unique_ptr<worker_thread>> threads;

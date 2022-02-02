@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "api.h"
 
 namespace coral::task_manager
 {
@@ -10,10 +11,10 @@ namespace coral::task_manager
     {
     public:
         // Construction
-        static void init(uint32_t thread_count);
-        static void clear();
+        api static void init(uint32_t thread_count);
+        api static void clear();
 
         // Allocate a task from the task buffer
-        static task_t allocate();
+        api static task_t allocate();
     };
 }

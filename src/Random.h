@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "api.h"
 
 namespace coral::task_manager
 {
@@ -19,8 +20,8 @@ namespace coral::task_manager
     class split_mix_64
     {
     public:
-        static void init(uint64_t seed);
-        static uint64_t next();
+        api static void init(uint64_t seed);
+        api static uint64_t next();
 
     private:
         inline static thread_local uint64_t x;
@@ -30,11 +31,11 @@ namespace coral::task_manager
     class xoshiro_256_plus
     {
     public:
-        static void init(uint64_t seed);
-        static uint64_t next();
+        api static void init(uint64_t seed);
+        api static uint64_t next();
 
     private:
         inline static thread_local uint64_t s[4];
-        static uint64_t rotl(const uint64_t x, int k);
+        api static uint64_t rotl(const uint64_t x, int k);
     };    
 }

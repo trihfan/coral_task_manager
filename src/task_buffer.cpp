@@ -3,6 +3,7 @@
 #include "worker_thread.h"
 #include "config.h"
 #include <vector>
+#include <cassert>
 
 using namespace coral::task_manager;
 

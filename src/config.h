@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <cassert>
 
 // config
 namespace coral::task_manager

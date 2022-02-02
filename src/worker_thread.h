@@ -6,6 +6,7 @@
 #include "work_stealing_queue.h"
 #include "random.h"
 #include "task.h"
+#include "api.h"
 
 namespace coral::task_manager
 {
@@ -18,31 +19,31 @@ namespace coral::task_manager
     {
     public:
         // Construction
-        worker_thread(int index);
+        api worker_thread(int index);
 
         // Start the thread
-        void run();
+        api void run();
 
         // Cancel the thread
         // the thread will stop when the current running task has finished
-        void cancel();
+        api void cancel();
 
         // Wait until the thread is stopped
-        void join();
+        api void join();
 
         //----------------------------------------------------------------
         // Return the current thread index
-        static int get_thread_index();
+        api static int get_thread_index();
         
         // Return the work stealing queue of the current thread
-        static work_stealing_queue* get_work_stealing_queue();
+        api static work_stealing_queue* get_work_stealing_queue();
 
         // Return the next task in the queue or null if any
-        static task_t get_task();
+        api static task_t get_task();
 
         // Execute the given task
-        static void finish(task_t task);
-        static void execute(task_t task);
+        api static void finish(task_t task);
+        api static void execute(task_t task);
 
     private:
         // Thread index

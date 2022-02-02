@@ -3,6 +3,7 @@
 #include <chrono>
 #include <iostream>
 #include <future>
+#include <atomic>
 #include "coral_task_manager.h"
 
 using namespace std::chrono;
@@ -139,11 +140,11 @@ TEST_CASE_FIXTURE(TestFixture, "LambdaTest1")
 {
     auto parent = task_manager::create_task();
     auto last = parent;
-    int total = 2;
+    std::atomic<int> total = 2;
     std::vector<task_manager::task_t> tasks;
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 1000; i++)
     {
-        last = task_manager::create_child_task(last, [](int* total, int value) 
+        last = task_manager::create_child_task(last, [](std::atomic<int>* total, int value) 
         {
             *total += value;
         }, &total, i);
@@ -157,24 +158,5 @@ TEST_CASE_FIXTURE(TestFixture, "LambdaTest1")
 
     task_manager::run(parent);
     task_manager::wait(parent);
-    CHECK(total == 47);
-}
-
-TEST_CASE_FIXTURE(TestFixture, "LambdaTest2")
-{
-    int total = 2;
-    auto first = task_manager::create_task([&total](int value) 
-    {
-        total += value;
-    }, 1);
-
-    auto second = task_manager::create_child_task(first, [&total](int value) 
-    {
-        total += 2 * value;
-    }, 1);
-
-    task_manager::run(second);
-    task_manager::run(first);
-    task_manager::wait(first);
-    CHECK(total == 5);
+    CHECK(total == 499502);
 }
