@@ -3,7 +3,6 @@
 #include <memory>
 #include <vector>
 #include "config.h"
-#include "api.h"
 
 namespace coral::task_manager
 {
@@ -17,16 +16,16 @@ namespace coral::task_manager
     class work_stealing_queue
     {
     public:
-        api work_stealing_queue(size_t size);
+        work_stealing_queue(size_t size);
 
         // Push a task to the queue
-        api void push(task_t task);
+        void push(task_t task);
 
         // Pop a task from the queue
-        api task_t pop();
+        task_t pop();
 
         // Steal a task from the queue
-        api task_t steal();
+        task_t steal();
 
     private:
         std::vector<task_t> tasks;
@@ -38,11 +37,11 @@ namespace coral::task_manager
     class work_stealing_queues
     {
     public:
-        api static void init(size_t size);
-        api static void clear();
+        static void init(size_t size);
+        static void clear();
         
-        api static size_t size();
-        api static work_stealing_queue* get(size_t index);
+        static size_t size();
+        static work_stealing_queue* get(size_t index);
 
     private:
         inline static size_t count = 0;
