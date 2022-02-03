@@ -8,6 +8,8 @@
 #include "function_traits.h"
 #include "task_buffer.h"
 
+#include <iostream>
+
 namespace coral::task_manager
 {
     struct task;
@@ -41,6 +43,7 @@ namespace coral::task_manager
     template <typename Function, typename... Args>
     task_t create_task(const Function function, Args... args)
     {
+        static_assert(sizeof(decltype(function)) == 1, "A task function can't contains captured values");
         static const thread_local auto copy = function;
         auto task = task_buffer::allocate();
         task->function = [](auto task, auto data) { apply(copy, data, std::make_index_sequence<sizeof...(Args)>{}); };

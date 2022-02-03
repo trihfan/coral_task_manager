@@ -1,4 +1,5 @@
 #include "worker_thread.h"
+#include <cassert>
 
 #define YIELD std::this_thread::yield();
 

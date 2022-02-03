@@ -1,8 +1,7 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.21)
 
 # Options
 option(BUILD_TESTS "Build the tests" OFF)
-OPTION(BUILD_SHARED_LIBS "Build as shared library" ON)
 
 # Project config
 project(coral_task_manager LANGUAGES CXX)
