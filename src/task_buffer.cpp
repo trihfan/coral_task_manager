@@ -4,6 +4,7 @@
 #include "config.h"
 #include <vector>
 #include <cassert>
+#include <algorithm>
 
 using namespace coral::task_manager;
 

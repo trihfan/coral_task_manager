@@ -19,10 +19,10 @@ namespace coral::task_manager
     // The task struct, contains the function and the data
     struct task
     {
-        task_function function;             // task function to execute
-        task* parent;                       // optional task parent
-        std::atomic<int32_t> remaining;     // remaining work for the task (current + children)
-        char data[data_size];               // task data
+        task_function function;                 // task function to execute
+        task* parent = nullptr;                 // optional task parent
+        std::atomic<int32_t> remaining = 0;     // remaining work for the task (current + children)
+        char data[data_size];                   // task data
     };
     using task_t = task*;
 

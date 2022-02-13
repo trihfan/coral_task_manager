@@ -22,7 +22,7 @@ jobs:
     - name: install dependencies
       run: conan install .
     - name: configure
-      run: cmake . -DBUILD_TESTS=ON
+      run: cmake . -DBUILD_TESTS=ON -DCMAKE_RELEASE_TYPE=Release
     - name: build
       run: cmake --build .
     - name: test
