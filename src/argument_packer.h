@@ -1,5 +1,6 @@
 #pragma once
 #include <tuple>
+#include <cstring>
 
 namespace coral::task_manager::items
 {
