@@ -74,6 +74,18 @@ namespace coral::task_manager
         internal::wait(task, std::forward<Tasks>(tasks)...);
     }
 
+    inline void wait(std::function<bool()>&& condition)
+    {
+        while (!condition())
+        {
+            auto nextTask = worker_thread::get_task();
+            if (nextTask)
+            {
+                worker_thread::execute(nextTask);
+            }
+        }
+    }
+
     /*template <typename Type, typename Splitter>
     task_t parallel_for(Type* data, size_t count, void (*function)(T*, size_t), const Splitter& splitter)
     {

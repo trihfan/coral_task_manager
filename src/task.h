@@ -65,7 +65,7 @@ namespace coral::task_manager
     {
         auto task = create_task(function, std::forward<Args>(args)...);
         task->parent = parent;
-        parent->remaining.fetch_add(1, std::memory_order::memory_order_relaxed);
+        parent->remaining.fetch_add(1, std::memory_order_relaxed);
         return task;
     }
 }
