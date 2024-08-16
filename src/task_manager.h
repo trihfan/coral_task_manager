@@ -2,6 +2,7 @@
 #include <thread>
 #include <vector>
 #include <memory>
+#include <functional>
 #include "worker_thread.h"
 #include "random.h"
 #include "task.h"
@@ -12,7 +13,7 @@ namespace coral::task_manager
     class manager
     {
     public:
-        static void start(int threadCount = std::thread::hardware_concurrency() - 1);
+        static void start(int threadCount = std::thread::hardware_concurrency());
         static void stop();
 
     private:
@@ -25,7 +26,7 @@ namespace coral::task_manager
         return task->remaining.load(std::memory_order_relaxed) <= 0;
     }
 
-    inline void start(int threadCount = std::thread::hardware_concurrency() - 1)
+    inline void start(int threadCount = std::thread::hardware_concurrency())
     {
         manager::start(threadCount);        
     }
@@ -38,6 +39,13 @@ namespace coral::task_manager
     inline void run(task_t task)
     {
         work_stealing_queue* queue = worker_thread::get_work_stealing_queue();
+        queue->push(task);
+    }
+
+    inline void runOnThread(task_t task, uint8_t threadNumber)
+    {
+        work_stealing_queue* queue = work_stealing_queues::get(threadNumber);
+        task->isPinned = 1;
         queue->push(task);
     }
 
