@@ -16,6 +16,8 @@ namespace coral::task_manager
     typedef void (*task_function)(task*, const void*);
     static constexpr int data_size = config::task_size_bytes - sizeof(task_function) - sizeof(task*) - sizeof(std::atomic<int32_t>) - sizeof(uint8_t);
 
+    static constexpr uint8_t ANY_THREAD_INDEX = std::numeric_limits<uint8_t>::max();
+
     // The task struct, contains the function and the data
     struct task
     {
@@ -23,7 +25,7 @@ namespace coral::task_manager
         task* parent = nullptr;                 // optional task parent
         std::atomic<int32_t> remaining = 0;     // remaining work for the task (current + children)
         char data[data_size];                   // task data
-        uint8_t isPinned = 0;                   // internal task flags
+        uint8_t threadIndex = ANY_THREAD_INDEX;                
     };
     using task_t = task*;
 

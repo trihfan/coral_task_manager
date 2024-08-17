@@ -5,6 +5,7 @@
 #include <future>
 #include <atomic>
 #include "coral_task_manager.h"
+#include "worker_thread.h"
 
 using namespace std::chrono;
 using namespace coral;
@@ -159,4 +160,36 @@ TEST_CASE_FIXTURE(TestFixture, "LambdaTest1")
     task_manager::run(parent);
     task_manager::wait(parent);
     CHECK(total == 499502);
+}
+
+TEST_CASE_FIXTURE(TestFixture, "Pinned")
+{
+    for (int i = 0; i < std::thread::hardware_concurrency() - 1; i++)
+    {
+        task_manager::manager::set_execute_only_pinned_tasks(i);
+    }
+
+    auto start = steady_clock::now();
+
+    for (int i = 0; i < 1000; i++)
+    {
+        auto parent = task_manager::create_task();
+
+        for (int j = 0; j < 1000; j++)
+        {
+            uint8_t index = j % std::thread::hardware_concurrency();
+            auto task = task_manager::create_child_task(parent, [](uint8_t index) 
+            {
+                CHECK(task_manager::worker_thread::get_thread_index() == index);
+            }, index);
+            task->threadIndex = index;
+            task_manager::run(task);
+        }
+
+        task_manager::run(parent);
+        task_manager::wait(parent);
+    }
+
+    auto elapsed = steady_clock::now() - start;
+    std::cout << "time for pined: " << duration_cast<microseconds>(elapsed).count() / 1000. << "ms" << std::endl;
 }

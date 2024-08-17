@@ -68,12 +68,6 @@ task_t work_stealing_queue::steal()
         // non-empty queue
         auto task = tasks[currentTop & config::get_max_task_count_mask()];
 
-        // tmp easy way to prevent pinned task to leave this queue
-        if (task->isPinned == 1)
-        {
-            return nullptr;
-        }
-
         // the interlocked function serves as a compiler barrier, and guarantees that the read happens before the CAS.
         if (!top.compare_exchange_strong(currentTop, currentTop + 1, std::memory_order_seq_cst, std::memory_order_relaxed))
         {

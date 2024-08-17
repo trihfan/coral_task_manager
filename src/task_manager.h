@@ -16,6 +16,8 @@ namespace coral::task_manager
         static void start(int threadCount = std::thread::hardware_concurrency());
         static void stop();
 
+        static void set_execute_only_pinned_tasks(uint8_t thread_id, bool only_pinned_tasks = true);
+
     private:
         inline static std::vector<std::unique_ptr<worker_thread>> threads;
     };
@@ -38,15 +40,16 @@ namespace coral::task_manager
 
     inline void run(task_t task)
     {
-        work_stealing_queue* queue = worker_thread::get_work_stealing_queue();
-        queue->push(task);
-    }
-
-    inline void runOnThread(task_t task, uint8_t threadNumber)
-    {
-        work_stealing_queue* queue = work_stealing_queues::get(threadNumber);
-        task->isPinned = 1;
-        queue->push(task);
+        if (task->threadIndex == ANY_THREAD_INDEX)
+        {
+            work_stealing_queue* queue = worker_thread::get_work_stealing_queue();
+            queue->push(task);
+        }
+        else
+        {
+            pinned_task_queue* queue = pinned_task_queues::get(task->threadIndex);
+            queue->push(task);
+        }
     }
 
     namespace internal
@@ -58,10 +61,13 @@ namespace coral::task_manager
         {
             while (!is_finished(task))
             {
-                auto nextTask = worker_thread::get_task();
-                if (nextTask)
+                if (auto task = worker_thread::get_pinned_task_queue()->pop(false))
                 {
-                    worker_thread::execute(nextTask);
+                    worker_thread::execute(task);
+                }
+                else if (auto task = worker_thread::get_task())
+                {
+                    worker_thread::execute(task);
                 }
             }
             internal::wait(std::forward<Tasks>(tasks)...);

@@ -7,6 +7,7 @@
 namespace coral::task_manager
 {
     struct task;
+    using task_t = task*;
     
     /**
      * work_stealing_queue is a queue of task allowing work stealing

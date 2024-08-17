@@ -15,12 +15,27 @@ void worker_thread::run()
     {
         random<xoshiro_256_plus>::init(std::hash<std::thread::id>{}(std::this_thread::get_id()));
         thread_index = index;
-        while (!cancelled.load(std::memory_order_relaxed))
+        while (!cancelled.load(std::memory_order_acquire))
         {
-            auto task = get_task();
-            if (task)
+            // Execute in priority the pinned tasks
+            if (auto task = get_pinned_task_queue()->pop(execute_only_pinned_tasks))
             {
                 execute(task);
+            }
+            else if (!execute_only_pinned_tasks)
+            {
+                if (auto task = get_task())
+                {
+                    execute(task);
+                }
+                else 
+                {
+                    YIELD
+                }
+            }
+            else 
+            {
+                YIELD
             }
         }
     });
@@ -28,7 +43,8 @@ void worker_thread::run()
 
 void worker_thread::cancel()
 {
-    cancelled.store(true, std::memory_order_relaxed);
+    cancelled.store(true, std::memory_order_release);
+    pinned_task_queues::get(index)->cancel();
 }
 
 void worker_thread::join()
@@ -49,6 +65,11 @@ work_stealing_queue* worker_thread::get_work_stealing_queue()
     return work_stealing_queues::get(worker_thread::get_thread_index());
 }
 
+pinned_task_queue* worker_thread::get_pinned_task_queue()
+{
+    return pinned_task_queues::get(worker_thread::get_thread_index());
+}
+
 task_t worker_thread::get_task()
 {
     auto queue = get_work_stealing_queue();
@@ -61,7 +82,6 @@ task_t worker_thread::get_task()
         if (stealQueue == queue)
         {
             // don't try to steal from ourselves
-            YIELD
             return nullptr;
         }
 
@@ -69,7 +89,6 @@ task_t worker_thread::get_task()
         if (!stolenTask)
         {
             // we couldn't steal a job from the other queue either, so we just yield our time slice for now
-            YIELD
             return nullptr;
         }
 
@@ -93,4 +112,9 @@ void worker_thread::execute(task_t task)
 {
     (task->function)(task, task->data);
     finish(task);
+}
+
+void worker_thread::set_execute_only_pinned_tasks(bool only_pinned_tasks)
+{
+    execute_only_pinned_tasks = only_pinned_tasks;
 }
