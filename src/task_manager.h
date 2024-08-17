@@ -16,7 +16,9 @@ namespace coral::task_manager
         static void start(int threadCount = std::thread::hardware_concurrency());
         static void stop();
 
+        // Params
         static void set_execute_only_pinned_tasks(uint8_t thread_id, bool only_pinned_tasks = true);
+        static bool is_execute_only_pinned_tasks(uint8_t thread_id);
 
     private:
         inline static std::vector<std::unique_ptr<worker_thread>> threads;
@@ -40,20 +42,13 @@ namespace coral::task_manager
 
     inline void run(task_t task)
     {
-        if (task->threadIndex == ANY_THREAD_INDEX)
-        {
-            work_stealing_queue* queue = worker_thread::get_work_stealing_queue();
-            queue->push(task);
-        }
-        else
-        {
-            pinned_task_queue* queue = pinned_task_queues::get(task->threadIndex);
-            queue->push(task);
-        }
+        worker_thread::enqueue(task);
     }
 
     namespace internal
-    {
+    {       
+        inline static bool execute_only_pinned_tasks_main_thread = false;
+
         inline void wait() {}
 
         template <typename... Tasks>
@@ -61,14 +56,7 @@ namespace coral::task_manager
         {
             while (!is_finished(task))
             {
-                if (auto task = worker_thread::get_pinned_task_queue()->pop(false))
-                {
-                    worker_thread::execute(task);
-                }
-                else if (auto task = worker_thread::get_task())
-                {
-                    worker_thread::execute(task);
-                }
+                worker_thread::try_execute_one_task(manager::is_execute_only_pinned_tasks(worker_thread::get_thread_index()));
             }
             internal::wait(std::forward<Tasks>(tasks)...);
         }
@@ -92,11 +80,7 @@ namespace coral::task_manager
     {
         while (!condition())
         {
-            auto nextTask = worker_thread::get_task();
-            if (nextTask)
-            {
-                worker_thread::execute(nextTask);
-            }
+            worker_thread::try_execute_one_task(manager::is_execute_only_pinned_tasks(worker_thread::get_thread_index()));
         }
     }
 

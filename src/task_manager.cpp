@@ -40,5 +40,24 @@ void manager::stop()
 
 void manager::set_execute_only_pinned_tasks(uint8_t thread_id, bool only_pinned_tasks)
 {
-    threads[thread_id]->set_execute_only_pinned_tasks(only_pinned_tasks);
+    if (thread_id == 0)
+    {
+        internal::execute_only_pinned_tasks_main_thread = only_pinned_tasks;
+    }
+    else
+    {
+        threads[thread_id - 1]->set_execute_only_pinned_tasks(only_pinned_tasks);
+    }
+}
+
+bool manager::is_execute_only_pinned_tasks(uint8_t thread_id)
+{
+    if (thread_id == 0)
+    {
+        return internal::execute_only_pinned_tasks_main_thread;
+    }
+    else
+    {
+        return  threads[thread_id - 1]->is_execute_only_pinned_tasks();
+    }
 }

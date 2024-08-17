@@ -164,7 +164,7 @@ TEST_CASE_FIXTURE(TestFixture, "LambdaTest1")
 
 TEST_CASE_FIXTURE(TestFixture, "Pinned")
 {
-    for (int i = 0; i < std::thread::hardware_concurrency() - 1; i++)
+    for (int i = 0; i < std::thread::hardware_concurrency(); i++)
     {
         task_manager::manager::set_execute_only_pinned_tasks(i);
     }
@@ -174,6 +174,7 @@ TEST_CASE_FIXTURE(TestFixture, "Pinned")
     for (int i = 0; i < 1000; i++)
     {
         auto parent = task_manager::create_task();
+        parent->threadIndex = 0;
 
         for (int j = 0; j < 1000; j++)
         {

@@ -17,28 +17,33 @@ void worker_thread::run()
         thread_index = index;
         while (!cancelled.load(std::memory_order_acquire))
         {
-            // Execute in priority the pinned tasks
-            if (auto task = get_pinned_task_queue()->pop(execute_only_pinned_tasks))
-            {
-                execute(task);
-            }
-            else if (!execute_only_pinned_tasks)
-            {
-                if (auto task = get_task())
-                {
-                    execute(task);
-                }
-                else 
-                {
-                    YIELD
-                }
-            }
-            else 
-            {
-                YIELD
-            }
+            try_execute_one_task(execute_only_pinned_tasks);
         }
     });
+}
+
+void worker_thread::try_execute_one_task(bool execute_only_pinned_tasks)
+{
+    // Execute in priority the pinned tasks
+    if (auto task = get_pinned_task_queue()->pop(execute_only_pinned_tasks))
+    {
+        execute(task);
+    }
+    else if (!execute_only_pinned_tasks)
+    {
+        if (auto task = get_or_steal_task())
+        {
+            execute(task);
+        }
+        else 
+        {
+            YIELD
+        }
+    }
+    else 
+    {
+        YIELD
+    }
 }
 
 void worker_thread::cancel()
@@ -70,7 +75,21 @@ pinned_task_queue* worker_thread::get_pinned_task_queue()
     return pinned_task_queues::get(worker_thread::get_thread_index());
 }
 
-task_t worker_thread::get_task()
+void worker_thread::enqueue(task_t task)
+{
+    if (task->threadIndex == ANY_THREAD_INDEX)
+    {
+        work_stealing_queue* queue = worker_thread::get_work_stealing_queue();
+        queue->push(task);
+    }
+    else
+    {
+        pinned_task_queue* queue = pinned_task_queues::get(task->threadIndex);
+        queue->push(task);
+    }
+}
+
+task_t worker_thread::get_or_steal_task()
 {
     auto queue = get_work_stealing_queue();
     auto task = queue->pop();
@@ -117,4 +136,9 @@ void worker_thread::execute(task_t task)
 void worker_thread::set_execute_only_pinned_tasks(bool only_pinned_tasks)
 {
     execute_only_pinned_tasks = only_pinned_tasks;
+}
+
+bool worker_thread::is_execute_only_pinned_tasks() const
+{
+    return execute_only_pinned_tasks;
 }
