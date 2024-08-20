@@ -129,6 +129,7 @@ void worker_thread::finish(task_t task)
 
 void worker_thread::execute(task_t task)
 {
+    assert(task->threadIndex == ANY_THREAD_INDEX || task->threadIndex == get_thread_index());
     (task->function)(task, task->data);
     finish(task);
 }
