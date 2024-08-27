@@ -45,6 +45,12 @@ namespace coral::task_manager
         worker_thread::enqueue(task);
     }
 
+    inline void run(task_t task, uint8_t threadIndex)
+    {
+        task->threadIndex = threadIndex;
+        worker_thread::enqueue(task);
+    }
+
     namespace internal
     {       
         inline static bool execute_only_pinned_tasks_main_thread = false;
