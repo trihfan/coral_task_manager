@@ -1,17 +1,17 @@
-#include "work_stealing_queue.h"
-#include "task.h"
+#include "WorkStealingQueue.h"
+#include "Task.h"
 
-using namespace coral::task_manager;
+using namespace coral::taskmanager;
 
-work_stealing_queue::work_stealing_queue(size_t size)
+WorkStealingQueue::WorkStealingQueue(size_t size)
 {
     tasks.resize(size);
 }
 
-void work_stealing_queue::push(task_t task)
+void WorkStealingQueue::Push(Task* task)
 {
     int64_t currentBottom = bottom.load(std::memory_order_relaxed);
-    tasks[currentBottom & config::get_max_task_count_mask()] = task;
+    tasks[currentBottom & config::GetMaxTaskCountMask()] = task;
 
     // ensure the job is written before b+1 is published to other threads.
     // on x86/64, a compiler barrier is enough.
@@ -20,7 +20,7 @@ void work_stealing_queue::push(task_t task)
     bottom.store(currentBottom + 1, std::memory_order_relaxed);
 }
 
-task_t work_stealing_queue::pop()
+Task* WorkStealingQueue::Pop()
 {
     int64_t currentBottom = bottom.load(std::memory_order_relaxed) - 1;
     bottom.store(currentBottom, std::memory_order_relaxed);
@@ -30,12 +30,12 @@ task_t work_stealing_queue::pop()
     if (currentTop < currentBottom)
     {
         // non-empty queue
-        return tasks[currentBottom & config::get_max_task_count_mask()];
+        return tasks[currentBottom & config::GetMaxTaskCountMask()];
     }
-    else if(currentTop == currentBottom)
+    else if (currentTop == currentBottom)
     {
         // this is the last item in the queue
-        auto task = tasks[currentBottom & config::get_max_task_count_mask()];
+        Task* task = tasks[currentBottom & config::GetMaxTaskCountMask()];
         const int64_t desired = currentTop + 1;
         if (!top.compare_exchange_strong(currentTop, desired, std::memory_order_seq_cst, std::memory_order_relaxed))
         {
@@ -54,7 +54,7 @@ task_t work_stealing_queue::pop()
     }
 }
 
-task_t work_stealing_queue::steal()
+Task* WorkStealingQueue::Steal()
 {
     int64_t currentTop = top.load(std::memory_order_relaxed);
 
@@ -66,7 +66,7 @@ task_t work_stealing_queue::steal()
     if (currentTop < currentBottom)
     {
         // non-empty queue
-        auto task = tasks[currentTop & config::get_max_task_count_mask()];
+        Task* task = tasks[currentTop & config::GetMaxTaskCountMask()];
 
         // the interlocked function serves as a compiler barrier, and guarantees that the read happens before the CAS.
         if (!top.compare_exchange_strong(currentTop, currentTop + 1, std::memory_order_seq_cst, std::memory_order_relaxed))
@@ -84,7 +84,7 @@ task_t work_stealing_queue::steal()
     }
 }
 
-void work_stealing_queues::clear()
+void WorkStealingQueues::Clear()
 {
     for (size_t i = 0; i < queues.size(); i++)
     {
@@ -93,22 +93,22 @@ void work_stealing_queues::clear()
     queues.clear();
 }
 
-size_t work_stealing_queues::size()
+size_t WorkStealingQueues::Size()
 {
     return count;
 }
 
-void work_stealing_queues::init(size_t size)
+void WorkStealingQueues::Init(size_t size)
 {
     count = size;
     queues.resize(size);
     for (size_t i = 0; i < size; i++)
     {
-        queues[i] = new work_stealing_queue(config::get_max_task_count());
+        queues[i] = new WorkStealingQueue(config::GetMaxTaskCount());
     }
 }
 
-work_stealing_queue* work_stealing_queues::get(size_t index)
+WorkStealingQueue* WorkStealingQueues::Get(size_t index)
 {
     return queues[index];
 }

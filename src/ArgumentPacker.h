@@ -2,7 +2,7 @@
 #include <tuple>
 #include <cstring>
 
-namespace coral::task_manager::items
+namespace coral::taskmanager::items
 {
     // Item extraction from item list
     template <size_t Index, typename... Items>

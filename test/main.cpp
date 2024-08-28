@@ -5,7 +5,7 @@
 #include <future>
 #include <atomic>
 #include "coral_task_manager.h"
-#include "worker_thread.h"
+#include "WorkerThread.h"
 
 using namespace std::chrono;
 using namespace coral;
@@ -142,7 +142,7 @@ TEST_CASE_FIXTURE(TestFixture, "LambdaTest1")
     auto parent = task_manager::create_task();
     auto last = parent;
     std::atomic<int> total = 2;
-    std::vector<task_manager::task_t> tasks;
+    std::vector<task_manager::Task*> tasks;
     for (int i = 0; i < 1000; i++)
     {
         last = task_manager::create_child_task(last, [](std::atomic<int>* total, int value) 
@@ -181,7 +181,7 @@ TEST_CASE_FIXTURE(TestFixture, "Pinned")
             uint8_t index = j % std::thread::hardware_concurrency();
             auto task = task_manager::create_child_task(parent, [](uint8_t index) 
             {
-                CHECK(task_manager::worker_thread::get_thread_index() == index);
+                CHECK(task_manager::WorkerThread::get_thread_index() == index);
             }, index);
             task->threadIndex = index;
             task_manager::run(task);

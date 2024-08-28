@@ -3,36 +3,36 @@
 #include <cassert>
 
 // config
-namespace coral::task_manager
+namespace coral::taskmanager
 {
     struct config
     {
         // Const parameters
-        static constexpr uint32_t task_size_bytes = 64;
+        static constexpr uint32_t TaskSizeBytes = 64;
 
         // Maxmimum task count in the task manager
-        static void set_max_task_count(uint32_t count)
+        static void SetMaxTaskCount(uint32_t count)
         {
-            // max_task_count must be a power of two
+            // maxTaskCount must be a power of two so we can use it like a modulo
             assert(count % 2 == 0);
-            max_task_count = count;
-            max_task_count_mask = max_task_count - 1u;
+            maxTaskCount = count;
+            maxTaskCountMask = maxTaskCount - 1u;
         }
 
         // Return the max task count value
-        static uint32_t get_max_task_count()
+        static uint32_t GetMaxTaskCount()
         {
-            return max_task_count;
+            return maxTaskCount;
         }
 
-        // Return the max task count mask
-        static uint32_t get_max_task_count_mask()
+        // Return the mask to iterate a task buffer (buffer[index & maxTaskCount])
+        static uint32_t GetMaxTaskCountMask()
         {
-            return max_task_count_mask;
+            return maxTaskCountMask;
         }
 
     private:
-        inline static uint32_t max_task_count = 4096u;
-        inline static uint32_t max_task_count_mask = max_task_count - 1u;
+        inline static uint32_t maxTaskCount = 4096u;
+        inline static uint32_t maxTaskCountMask = maxTaskCount - 1u;
     };
 }

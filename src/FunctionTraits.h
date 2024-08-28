@@ -1,23 +1,23 @@
 #pragma once
 #include <tuple>
 
-namespace coral::task_manager
+namespace coral::taskmanager
 {
     template <typename Type>
-    struct function_traits : public function_traits<decltype(&Type::operator())> {};
+    struct FunctionTraits : public FunctionTraits<decltype(&Type::operator())> {};
 
     // Get function traits from template
     template <typename ClassType, typename ReturnType, typename... Args>
-    struct function_traits<ReturnType(ClassType::*)(Args...) const>
+    struct FunctionTraits<ReturnType(ClassType::*)(Args...) const>
     {
         // Function return type
-        using return_type = ReturnType;
+        using Return = ReturnType;
 
         // Arguments arity
-        static constexpr auto arity = sizeof...(Args);
+        static constexpr auto Arity = sizeof...(Args);
 
         // Function arguments as a tuple
-        using arguments = std::tuple<Args...>;
+        using Arguments = std::tuple<Args...>;
 
         // Function class
         using Class = ClassType;
