@@ -19,7 +19,6 @@
  */
 namespace coral::taskmanager
 {
-
 /*** Task manager ***/ 
 inline void Start(int threadCount = std::thread::hardware_concurrency())
 {
@@ -31,68 +30,45 @@ inline void Stop()
     Manager::Stop();        
 }
 
-inline void SetWorkStealingEnabled(uint8_t threadId, bool enableWorkStealing)
+inline void SetExecuteOnlyPinnedTasks(uint8_t threadId, bool executeOnlyPinnedTasks)
 {
     if (threadId == 0)
     {
-        Manager::workStealingEnabledMainThread = enableWorkStealing;
+        Manager::executeOnlyPinnedTasksMainThread = executeOnlyPinnedTasks;
     }
     else
     {
-        Manager::threads[threadId - 1]->SetWorkStealingEnabled(enableWorkStealing);
+        Manager::threads[threadId - 1]->SetExecuteOnlyPinnedTasks(executeOnlyPinnedTasks);
     }
 }
 
-inline bool IsWorkStealingEnabled(uint8_t threadId)
+inline bool IsExecuteOnlyPinnedTasks(uint8_t threadId)
 {
     if (threadId == 0)
     {
-        return Manager::workStealingEnabledMainThread;
+        return Manager::executeOnlyPinnedTasksMainThread;
     }
     else
     {
-        return Manager::threads[threadId - 1]->IsWorkStealingEnabled();
+        return Manager::threads[threadId - 1]->IsExecuteOnlyPinnedTasks();
     }
 }
 
 /*** Create tasks ***/ 
-template <typename Function, typename... Args>
-Task* CreateTask(const Function function, Args... args)
+template <typename... Args>
+inline Task* CreateTask(std::function<void(Task*, void*)>&& function, Args... args)
 {
-    static_assert(sizeof(decltype(function)) == 1, "A task function can't contains captured values");
-    static const thread_local auto copy = function;
     Task* task = TaskBuffer::Allocate();
-    task->function = [](auto task, auto data) { Apply(copy, data, std::make_index_sequence<sizeof...(Args)>{}); };
+    task->function = std::move(function);
     task->parent = nullptr;
     task->remaining.store(1, std::memory_order_relaxed);
     items::copy(task->data, std::forward<Args>(args)...);
     return task;
 }
 
-// Helper to create an empty task (for example to create a parent task)
-inline Task* CreateTask() { return CreateTask([](){}); } 
+// Create an empty task
+inline Task* CreateTask() { return CreateTask(nullptr); } 
 
-//inline Task* CreateTask()
-
-/*
-    template <typename... Args> using Function = void (*)(Args...);
-
-    // Function constructor
-    Connection(const Signal<Args...>& signal, Function<Args...> function) : signal(signal), type(ConnectionType::function), function(reinterpret_cast<void*>(function)) { }
-
-    // Methods constructor
-    template <typename Method, typename Object>
-    Connection(const Signal<Args...>& signal, Method method, Object* object) : signal(signal), type(ConnectionType::method), object(reinterpret_cast<void*>(object)), function(*reinterpret_cast<void**>(&method)) { }
-
-    // Lambda constructor
-    template <typename Lambda, typename std::enable_if<std::is_convertible<Lambda, std::function<void(Args...)>>::value, bool>::type = true>
-    Connection(const Signal<Args...>& signal, Lambda&& lambda) : signal(signal), type(ConnectionType::lambda), function(reinterpret_cast<void*>(new LambdaContainer<Args...>{ lambda })) { }
-
-    // Lambda with no argument constructor for simlpification
-    template <typename Lambda, typename std::enable_if<std::is_convertible<Lambda, std::function<void()>>::value && !std::is_same<std::function<void()>, std::function<void(Args...)>>::value, bool>::type = true>
-    Connection(const Signal<Args...>& signal, Lambda&& lambda) : signal(signal), type(ConnectionType::lambda), function(reinterpret_cast<void*>(new LambdaContainer<Args...>{[lambda](Args...){ lambda(); }})) { }
-
-*/
 inline void SetParentTask(Task* parent, Task* child)
 {
     child->parent = parent;
@@ -101,10 +77,10 @@ inline void SetParentTask(Task* parent, Task* child)
 }
 
 // Create a task as a child of the given parent
-template <typename Function, typename... Args>
-Task* CreateChildTask(Task* parent, const Function function, Args&&... args)
+template <typename... Args>
+Task* CreateChildTask(Task* parent, std::function<void(Task*, void*)>&& function, Args&&... args)
 {
-    Task* task = CreateTask(function, std::forward<Args>(args)...);
+    Task* task = CreateTask(std::forward<std::function<void(Task*, void*)>>(function), std::forward<Args>(args)...);
     SetParentTask(parent, task);
     return task;
 }
@@ -136,7 +112,7 @@ namespace internal
     {
         while (!IsFinished(task))
         {
-            WorkerThread::TryExecuteOnTask(!Manager::IsWorkStealingEnabled(WorkerThread::GetThreadIndex()));
+            WorkerThread::TryExecuteOnTask(IsExecuteOnlyPinnedTasks(WorkerThread::GetThreadIndex()));
         }
         internal::Wait(std::forward<Tasks>(tasks)...);
     }
@@ -160,7 +136,7 @@ inline void Wait(std::function<bool()>&& condition)
 {
     while (!condition())
     {
-        WorkerThread::TryExecuteOnTask(!IsWorkStealingEnabled(WorkerThread::GetThreadIndex()));
+        WorkerThread::TryExecuteOnTask(IsExecuteOnlyPinnedTasks(WorkerThread::GetThreadIndex()));
     }
 }
 }

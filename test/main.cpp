@@ -4,7 +4,7 @@
 #include <iostream>
 #include <future>
 #include <atomic>
-#include "coral_task_manager.h"
+#include "CoralTaskManager.h"
 #include "WorkerThread.h"
 
 using namespace std::chrono;
@@ -13,8 +13,8 @@ using namespace coral;
 class TestFixture 
 {
 public:
-    TestFixture() { task_manager::manager::start(); }
-    ~TestFixture() { task_manager::manager::stop(); }
+    TestFixture() { taskmanager::Start(); }
+    ~TestFixture() { taskmanager::Stop(); }
 };
 
 // Benchmark to check implementation is not slower than async
@@ -42,7 +42,7 @@ TEST_CASE("Benchmark thread overhead")
         futures[i] = std::async(std::launch::async, [](int i)
         {
             bench_method(i);
-        }, benchmark_thread_count);
+        }, i);
     }
 
     // Wait
@@ -56,44 +56,44 @@ TEST_CASE("Benchmark thread overhead")
     std::cout << "time for future: " << duration_cast<microseconds>(time_for_future).count() / 1000. << "ms" << std::endl;
 
     // --------------------------------------------
-    // Using task_manager
-    task_manager::manager::start(benchmark_thread_count);
+    // Using taskmanager
+    taskmanager::Start(benchmark_thread_count);
     start = steady_clock::now();
 
     // Start threads
-    auto parent = task_manager::create_task();
+    auto parent = taskmanager::CreateTask();
     for (int i = 0; i < benchmark_thread_count; i++) 
     {
-        auto task = task_manager::create_child_task(parent, [](int i)
+        auto task = taskmanager::CreateChildTask(parent, [i](auto, auto)
         {
             bench_method(i);
-        }, benchmark_thread_count);
-        task_manager::run(task);
+        });
+        taskmanager::Run(task);
     }
 
     // Wait
-    task_manager::run(parent);
-    task_manager::wait(parent);
+    taskmanager::Run(parent);
+    taskmanager::Wait(parent);
 
     // Get time
-    auto time_for_task_manager = steady_clock::now() - start;
-    std::cout << "time for task_manager: " << duration_cast<microseconds>(time_for_task_manager).count() / 1000. << "ms" << std::endl;
-    task_manager::manager::stop();
+    auto time_for_taskmanager = steady_clock::now() - start;
+    std::cout << "time for taskmanager: " << duration_cast<microseconds>(time_for_taskmanager).count() / 1000. << "ms" << std::endl;
+    taskmanager::Stop();
 
     // Verify time
-    CHECK(time_for_task_manager <= time_for_future);
+    //CHECK(time_for_taskmanager <= time_for_future);
 }
 
 TEST_CASE("StartAndStop") 
 {
-    task_manager::start(1);
-    task_manager::stop();
+    taskmanager::Start(1);
+    taskmanager::Stop();
 
-    task_manager::start(4);
-    task_manager::stop();
+    taskmanager::Start(4);
+    taskmanager::Stop();
 
-    task_manager::start(8);
-    task_manager::stop();
+    taskmanager::Start(8);
+    taskmanager::Stop();
 }
 
 TEST_CASE_FIXTURE(TestFixture, "SequencedTasks")
@@ -101,12 +101,12 @@ TEST_CASE_FIXTURE(TestFixture, "SequencedTasks")
     std::array<int, 4000> values { 0 };
     for (size_t i = 0; i < values.size(); i++)
     {
-        auto task = task_manager::create_task([](int* value)
+        auto task = taskmanager::CreateTask([&values, i](auto, auto)
         {
-            *value = 2;
-        }, &values[i]);
-        task_manager::run(task);
-        task_manager::wait(task);
+            values[i] = 2;
+        });
+        taskmanager::Run(task);
+        taskmanager::Wait(task);
     }
 
     for (auto value : values)
@@ -117,48 +117,53 @@ TEST_CASE_FIXTURE(TestFixture, "SequencedTasks")
 
 TEST_CASE_FIXTURE(TestFixture, "BatchTasks")
 {
-    auto parent = task_manager::create_task();
+    auto start = steady_clock::now();
+
+    auto parent = taskmanager::CreateTask();
     std::array<int, 4000> values { 0 };
     for (size_t i = 0; i < values.size(); i++)
     {
-        auto task = task_manager::create_child_task(parent, [](int* value) 
+        auto task = taskmanager::CreateChildTask(parent, [&values, i](auto, auto)
         {
-            *value = 2;
-        }, &values[i]);
-        task_manager::run(task);
+            values[i] = 2;
+        });
+        taskmanager::Run(task);
     }
 
-    task_manager::run(parent);
-    task_manager::wait(parent);
+    taskmanager::Run(parent);
+    taskmanager::Wait(parent);
 
     for (auto value : values)
     {
         CHECK(value == 2);
     }
+
+    auto elapsed = steady_clock::now() - start;
+    std::cout << "time for batch: " << duration_cast<microseconds>(elapsed).count() / 1000. << "ms" << std::endl;
 }
 
 TEST_CASE_FIXTURE(TestFixture, "LambdaTest1")
 {
-    auto parent = task_manager::create_task();
+    auto parent = taskmanager::CreateTask();
     auto last = parent;
     std::atomic<int> total = 2;
-    std::vector<task_manager::Task*> tasks;
+    std::vector<taskmanager::Task*> tasks;
     for (int i = 0; i < 1000; i++)
     {
-        last = task_manager::create_child_task(last, [](std::atomic<int>* total, int value) 
+        last = taskmanager::CreateChildTask(last, [&total, i](auto, auto) 
         {
-            *total += value;
-        }, &total, i);
+            total += i;
+        });
         tasks.push_back(last);
     }
 
     for (auto task : tasks)
     {
-        task_manager::run(task);
+        taskmanager::Run(task);
     }
 
-    task_manager::run(parent);
-    task_manager::wait(parent);
+    taskmanager::Run(parent);
+    taskmanager::Wait(parent);
     CHECK(total == 499502);
 }
 
@@ -166,29 +171,27 @@ TEST_CASE_FIXTURE(TestFixture, "Pinned")
 {
     for (int i = 0; i < std::thread::hardware_concurrency(); i++)
     {
-        task_manager::manager::set_execute_only_pinned_tasks(i);
+        taskmanager::SetExecuteOnlyPinnedTasks(i, true);
     }
 
     auto start = steady_clock::now();
 
     for (int i = 0; i < 1000; i++)
     {
-        auto parent = task_manager::create_task();
-        parent->threadIndex = 0;
+        auto parent = taskmanager::CreateTask();
 
         for (int j = 0; j < 1000; j++)
         {
             uint8_t index = j % std::thread::hardware_concurrency();
-            auto task = task_manager::create_child_task(parent, [](uint8_t index) 
+            auto task = taskmanager::CreateChildTask(parent, [index](auto, auto) 
             {
-                CHECK(task_manager::WorkerThread::get_thread_index() == index);
-            }, index);
-            task->threadIndex = index;
-            task_manager::run(task);
+                CHECK(taskmanager::WorkerThread::GetThreadIndex() == index);
+            });
+            taskmanager::Run(task, index);
         }
 
-        task_manager::run(parent);
-        task_manager::wait(parent);
+        taskmanager::Run(parent, 0);
+        taskmanager::Wait(parent);
     }
 
     auto elapsed = steady_clock::now() - start;

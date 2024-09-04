@@ -32,9 +32,16 @@ void PinnedTaskQueue::Push(Task* task)
 Task* PinnedTaskQueue::Pop(bool waitForSemaphore)
 {
     // If the list is not empty and we should wait for the semaphore, dot it
-    if (waitForSemaphore && head.load(std::memory_order_relaxed) != &tail)
+    if (head.load(std::memory_order_acquire) == &tail)
     {
-        semaphore.acquire();
+        if (waitForSemaphore)
+        {
+            semaphore.acquire();
+        }
+        else
+        {
+            return nullptr;
+        }        
     }
 
     // Get the next tast

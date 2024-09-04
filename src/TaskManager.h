@@ -17,7 +17,7 @@ namespace coral::taskmanager
         static void Start(int threadCount = std::thread::hardware_concurrency());
         static void Stop();
 
-        inline static bool workStealingEnabledMainThread = true;
+        inline static bool executeOnlyPinnedTasksMainThread = false;
         inline static std::vector<std::unique_ptr<WorkerThread>> threads;   
     };
 

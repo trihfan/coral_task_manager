@@ -17,19 +17,20 @@ void WorkerThread::Run()
         Random<Xoshiro256Plus>::Init(std::hash<std::thread::id>{}(std::this_thread::get_id()));
         while (!cancelled.load(std::memory_order_acquire))
         {
-            TryExecuteOnTask(workStealingEnabled);
+            TryExecuteOnTask(executeOnlyPinnedTasks, executeOnlyPinnedTasks);
         }
     });
 }
 
-void WorkerThread::TryExecuteOnTask(bool workStealingEnabled)
+void WorkerThread::TryExecuteOnTask(bool executeOnlyPinnedTasks, bool useSemaphore)
 {
     // Execute in priority the pinned tasks
-    if (Task* task = GetPinnedTaskQueue()->Pop(!workStealingEnabled))
+    if (Task* task = GetPinnedTaskQueue()->Pop(useSemaphore))
     {
         Execute(task);
     }
-    else if (workStealingEnabled)
+    // If we can, execute tasks from work stealing queues
+    else if (!executeOnlyPinnedTasks)
     {
         if (Task* task = GetOrStealTask())
         {
@@ -130,16 +131,19 @@ void WorkerThread::Finish(Task* task)
 void WorkerThread::Execute(Task* task)
 {
     assert(task->threadIndex == AnyThreadIndex || task->threadIndex == GetThreadIndex());
-    (task->function)(task, task->data);
+    if (task->function)
+    {
+        task->function(task, task->data);
+    }
     Finish(task);
 }
 
-void WorkerThread::SetWorkStealingEnabled(bool enableWorkStealing)
+void WorkerThread::SetExecuteOnlyPinnedTasks(bool executeOnlyPinnedTasks)
 {
-    workStealingEnabled = enableWorkStealing;
+    this->executeOnlyPinnedTasks = executeOnlyPinnedTasks;
 }
 
-bool WorkerThread::IsWorkStealingEnabled() const
+bool WorkerThread::IsExecuteOnlyPinnedTasks() const
 {
-    return workStealingEnabled;
+    return executeOnlyPinnedTasks;
 }

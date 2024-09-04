@@ -31,10 +31,9 @@ namespace coral::taskmanager
         // Wait until the thread is stopped
         void Join();
 
-        // Set flag to allows the thread to steal work from other threads
-        // if it is false, thre thread will only execute the pinned task and sleep when there is no task to execute
-        void SetWorkStealingEnabled(bool enableWorkStealing);
-        bool IsWorkStealingEnabled() const;
+        // Force the thread to execute only the pinned task queue
+        void SetExecuteOnlyPinnedTasks(bool executeOnlyPinnedTasks);
+        bool IsExecuteOnlyPinnedTasks() const;
 
         //----------------------------------------------------------------
         // Return the current thread index
@@ -43,8 +42,10 @@ namespace coral::taskmanager
         // Enqueue a task to this thread
         static void Enqueue(Task* task);
 
-        // Try to get a task to execute and execute it for the current thread
-        static void TryExecuteOnTask(bool workStealingEnabled);
+        // Execute one task if we can find one
+        // executeOnlyPinnedTasks: only get task from pinned queue
+        // useSemaphore: if pinned queue is empty, wait for the semaphore to be signaled so the thread will sleep
+        static void TryExecuteOnTask(bool executeOnlyPinnedTasks, bool useSemaphore = false);
 
         // Execute the given task
         static void Finish(Task* task);
@@ -54,9 +55,8 @@ namespace coral::taskmanager
         // Thread index
         int index;
 
-        // If true, the thread can steal work from other thread
-        // if it is false, it will execute only the pinned task and sleep when there is no task to execute
-        bool workStealingEnabled = true;
+        // Force the thread to execute only the pinned task queue
+        bool executeOnlyPinnedTasks = false;
 
         // Flag to cancel the thread
         std::atomic<bool> cancelled { false };
