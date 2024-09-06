@@ -79,9 +79,6 @@ TEST_CASE("Benchmark thread overhead")
     auto time_for_taskmanager = steady_clock::now() - start;
     std::cout << "time for taskmanager: " << duration_cast<microseconds>(time_for_taskmanager).count() / 1000. << "ms" << std::endl;
     taskmanager::Stop();
-
-    // Verify time
-    //CHECK(time_for_taskmanager <= time_for_future);
 }
 
 TEST_CASE("StartAndStop") 
@@ -195,5 +192,31 @@ TEST_CASE_FIXTURE(TestFixture, "Pinned")
     }
 
     auto elapsed = steady_clock::now() - start;
-    std::cout << "time for pined: " << duration_cast<microseconds>(elapsed).count() / 1000. << "ms" << std::endl;
+    std::cout << "time for pinned: " << duration_cast<microseconds>(elapsed).count() / 1000. << "ms" << std::endl;
+}
+
+TEST_CASE_FIXTURE(TestFixture, "ComputeScore")
+{
+    static constexpr int IterationCount = 10000;
+    static constexpr int TaskCount = 1000;
+
+    auto start = steady_clock::now();
+
+    for (size_t i = 0; i < IterationCount; i++)
+    {
+        auto parent = taskmanager::CreateTask();
+        for (size_t j = 0; j < TaskCount; j++)
+        {
+            auto task = taskmanager::CreateChildTask(parent, [](auto, auto)
+            {
+            });
+            taskmanager::Run(task);
+        }
+        taskmanager::Run(parent);
+        taskmanager::Wait(parent);
+    }
+
+    auto elapsed = steady_clock::now() - start;
+    float score = static_cast<float>(duration_cast<microseconds>(elapsed).count()) / (IterationCount * TaskCount);
+    std::cout << "Score: " << score << "us" << std::endl;
 }

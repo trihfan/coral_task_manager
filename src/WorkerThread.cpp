@@ -126,6 +126,12 @@ void WorkerThread::Finish(Task* task)
     {
         Finish(task->parent);
     }
+
+    const uint8_t continuationCount = task->continuationCount.load(std::memory_order_acquire);
+    for (uint8_t i = 0; i < continuationCount; i++)
+    {
+        Enqueue(task->continuationTasks[i]);
+    }
 }
 
 void WorkerThread::Execute(Task* task)

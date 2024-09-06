@@ -1,4 +1,6 @@
 #pragma once
+#ifndef __CORAL_TASK_MANAGER_H__
+#define __CORAL_TASK_MANAGER_H__
 #include <thread>
 #include <vector>
 #include <memory>
@@ -9,20 +11,36 @@
 
 namespace coral::taskmanager
 {
-    // The actual task manager
-    class Manager
-    {
-    public:
-        // Start the manager, this will create (threadCount - 1) threads (the first one is the main thread)
-        static void Start(int threadCount = std::thread::hardware_concurrency());
-        static void Stop();
+    /*** Task manager ***/ 
+    void Start(int threadCount = std::thread::hardware_concurrency());
+    void Stop();
 
-        inline static bool executeOnlyPinnedTasksMainThread = false;
-        inline static std::vector<std::unique_ptr<WorkerThread>> threads;   
-    };
+    void SetExecuteOnlyPinnedTasks(uint8_t threadId, bool executeOnlyPinnedTasks);
+    bool IsExecuteOnlyPinnedTasks(uint8_t threadId);
 
-    /************************************************************/
-    
+    /*** Create tasks ***/ 
+    Task* CreateTask(std::function<void(Task*, void*)>&& function = nullptr);
+    Task* CreateChildTask(Task* parent, std::function<void(Task*, void*)>&& function);
+
+    // Dependencies
+    void SetParentTask(Task* parent, Task* child);
+    void AddContinuation(Task* task, Task* continuation);
+
+    /*** Wait for tasks to finished ***/ 
+    bool IsFinished(const Task* task);
+
+    template <typename... Tasks>
+    void Wait(Task* task, Tasks&&... tasks);
+    void Wait(std::function<bool()>&& condition);
+    void Wait(std::initializer_list<Task*> tasks);
+
+    /*** Run tasks ***/ 
+    void Run(Task* task);
+    void Run(Task* task, uint8_t threadIndex);
+
+    void RunAndWait(Task* task);
+    void RunAndWait(Task* task, uint8_t threadIndex);
+
     /*template <typename Type, typename Splitter>
     Task* parallel_for(Type* data, size_t count, void (*function)(T*, size_t), const Splitter& splitter)
     {
@@ -72,3 +90,5 @@ namespace coral::taskmanager
         }
     }*/
 }
+
+#endif
