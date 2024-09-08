@@ -1,7 +1,7 @@
 #include "TaskBuffer.h"
 #include "Task.h"
 #include "WorkerThread.h"
-#include "config.h"
+#include "Config.h"
 #include <vector>
 #include <cassert>
 #include <algorithm>

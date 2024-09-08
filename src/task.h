@@ -21,7 +21,7 @@ namespace coral::taskmanager
         uint8_t threadIndex = AnyThreadIndex;           // Thread index to execute the task
         std::atomic<uint8_t> continuationCount = 0;     // Number of tasks to start after this one
         std::array<Task*, 5> continuationTasks;         // Tasks to start after this one
-        void* data;                                     // Task data
+        char data[36];                                  // Task data
     };
 
     // asserts

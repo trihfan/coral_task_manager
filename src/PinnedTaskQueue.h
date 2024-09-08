@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 #include <semaphore>
-#include "config.h"
+#include "Config.h"
 
 namespace coral::taskmanager
 {
