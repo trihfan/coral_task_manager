@@ -8,7 +8,7 @@ PinnedTaskQueue::PinnedTaskQueue(size_t bufferSize) : buffer(bufferSize), head(&
     tail.next = nullptr;
 }
 
-void PinnedTaskQueue::Push(Task* task)
+void PinnedTaskQueue::Push(TaskHandle task)
 {
     #ifndef NDEBUG
     // Check if there is still some empty space in the queue
@@ -29,7 +29,7 @@ void PinnedTaskQueue::Push(Task* task)
     semaphore.release();
 }
 
-Task* PinnedTaskQueue::Pop(bool waitForSemaphore)
+TaskHandle PinnedTaskQueue::Pop(bool waitForSemaphore)
 {
     // If the list is not empty and we should wait for the semaphore, dot it
     if (head.load(std::memory_order_acquire) == &tail)
@@ -40,7 +40,7 @@ Task* PinnedTaskQueue::Pop(bool waitForSemaphore)
         }
         else
         {
-            return nullptr;
+            return NullTask;
         }        
     }
 
@@ -79,7 +79,7 @@ Task* PinnedTaskQueue::Pop(bool waitForSemaphore)
     }
     #endif
 
-    return tailPlusOne ? tailPlusOne->task : nullptr;
+    return tailPlusOne ? tailPlusOne->task : NullTask;
 }
 
 void PinnedTaskQueue::Clear()

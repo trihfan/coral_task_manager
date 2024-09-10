@@ -40,7 +40,7 @@ namespace coral::taskmanager
         static int GetThreadIndex();
     
         // Enqueue a task to this thread
-        static void Enqueue(Task* task);
+        static void Enqueue(TaskHandle task);
 
         // Execute one task if we can find one
         // executeOnlyPinnedTasks: only get task from pinned queue
@@ -48,8 +48,8 @@ namespace coral::taskmanager
         static void TryExecuteOnTask(bool executeOnlyPinnedTasks, bool useSemaphore = false);
 
         // Execute the given task
-        static void Finish(Task* task);
-        static void Execute(Task* task);
+        static void Finish(TaskHandle task);
+        static void Execute(TaskHandle task);
 
     private:
         // Thread index
@@ -68,7 +68,7 @@ namespace coral::taskmanager
         inline static thread_local int ThreadIndex = 0;
 
         // Return the next task in the queue or null if any
-        static Task* GetOrStealTask();
+        static TaskHandle GetOrStealTask();
 
         // Return the work stealing queue of the current thread
         static WorkStealingQueue* GetWorkStealingQueue();

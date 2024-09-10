@@ -12,14 +12,14 @@ using namespace coral::taskmanager;
 namespace internal
 {
     // Task buffer, split by thread
-    static Task* TaskBuffer;
-    static std::vector<uint32_t> TaskBufferIndices;
+    static TaskData* TaskBuffer;
+    static std::vector<TaskId> TaskBufferIndices;
 }
 
 // TaskBuffer methods
-void TaskBuffer::Init(uint32_t threadCount)
+void TaskBuffer::Init(size_t threadCount)
 {
-    internal::TaskBuffer = new Task[config::GetMaxTaskCount() * threadCount];
+    internal::TaskBuffer = new TaskData[config::GetMaxTaskCount() * threadCount];
     internal::TaskBufferIndices.resize(threadCount, 0);
 }
 
@@ -29,10 +29,22 @@ void TaskBuffer::Clear()
     internal::TaskBufferIndices.clear();
 }
 
-Task* TaskBuffer::Allocate()
+TaskHandle TaskBuffer::Allocate()
 {
+    TaskHandle handle;
+
     const auto thread = WorkerThread::GetThreadIndex();
-    const uint32_t i = internal::TaskBufferIndices[thread]++;
-    assert(internal::TaskBuffer[thread * config::GetMaxTaskCount() + (i & config::GetMaxTaskCountMask())].remaining == 0);
-    return &internal::TaskBuffer[thread * config::GetMaxTaskCount() + (i & config::GetMaxTaskCountMask())];
+    handle.id = thread * config::GetMaxTaskCount() + (internal::TaskBufferIndices[thread]++ & config::GetMaxTaskCountMask()) + 1;
+    assert(internal::TaskBuffer[handle.id - 1].remaining == 0);
+
+#ifndef NDEBUG
+    handle.data = &internal::TaskBuffer[handle.id - 1];
+#endif
+
+    return handle;
+}
+
+TaskData* TaskBuffer::Get(TaskId id)
+{
+    return &internal::TaskBuffer[id - 1];
 }

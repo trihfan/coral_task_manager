@@ -19,16 +19,16 @@ namespace coral::taskmanager
         WorkStealingQueue(size_t bufferSize);
 
         // Push a task to the queue
-        void Push(Task* task);
+        void Push(TaskHandle task);
 
         // Pop a task from the queue
-        Task* Pop();
+        TaskHandle Pop();
 
         // Steal a task from the queue
-        Task* Steal();
+        TaskHandle Steal();
 
     private:
-        std::vector<Task*> tasks;
+        std::vector<TaskHandle> tasks;
         std::atomic<int64_t> top { 0 };
         std::atomic<int64_t> bottom { 0 };
     };

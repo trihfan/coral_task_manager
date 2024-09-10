@@ -11,7 +11,7 @@
 /*
  *  coral::taskmanager::Start();
  *
- *  Task* task = coral::taskmanager::CreateTask([](){ ... });
+ *  Task* task = coral::taskmanager::CreateTask([](task, userData){ ... });
  *  coral::taskmanager::Run(task);
  *  coral::taskmanager::Wait(task);
  * 

@@ -8,7 +8,7 @@ namespace coral::taskmanager
     struct config
     {
         // Const parameters
-        static constexpr uint32_t TaskSizeBytes = 128;
+        static constexpr uint32_t TaskSizeBytes = std::hardware_destructive_interference_size * 2;
 
         // Maxmimum task count in the task manager
         static void SetMaxTaskCount(uint32_t count)

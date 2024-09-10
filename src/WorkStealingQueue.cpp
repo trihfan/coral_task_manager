@@ -8,7 +8,7 @@ WorkStealingQueue::WorkStealingQueue(size_t size)
     tasks.resize(size);
 }
 
-void WorkStealingQueue::Push(Task* task)
+void WorkStealingQueue::Push(TaskHandle task)
 {
     int64_t currentBottom = bottom.load(std::memory_order_relaxed);
     tasks[currentBottom & config::GetMaxTaskCountMask()] = task;
@@ -20,7 +20,7 @@ void WorkStealingQueue::Push(Task* task)
     bottom.store(currentBottom + 1, std::memory_order_relaxed);
 }
 
-Task* WorkStealingQueue::Pop()
+TaskHandle WorkStealingQueue::Pop()
 {
     int64_t currentBottom = bottom.load(std::memory_order_relaxed) - 1;
     bottom.store(currentBottom, std::memory_order_relaxed);
@@ -35,12 +35,12 @@ Task* WorkStealingQueue::Pop()
     else if (currentTop == currentBottom)
     {
         // this is the last item in the queue
-        Task* task = tasks[currentBottom & config::GetMaxTaskCountMask()];
+        TaskHandle task = tasks[currentBottom & config::GetMaxTaskCountMask()];
         const int64_t desired = currentTop + 1;
         if (!top.compare_exchange_strong(currentTop, desired, std::memory_order_seq_cst, std::memory_order_relaxed))
         {
             // failed race against steal operation
-            task = nullptr;
+            task = NullTask;
         }
 
         bottom.store(desired, std::memory_order_relaxed);
@@ -50,11 +50,11 @@ Task* WorkStealingQueue::Pop()
     {
         // deque was already empty
         bottom.store(currentTop, std::memory_order_relaxed);
-        return nullptr;
+        return NullTask;
     }
 }
 
-Task* WorkStealingQueue::Steal()
+TaskHandle WorkStealingQueue::Steal()
 {
     int64_t currentTop = top.load(std::memory_order_relaxed);
 
@@ -66,13 +66,13 @@ Task* WorkStealingQueue::Steal()
     if (currentTop < currentBottom)
     {
         // non-empty queue
-        Task* task = tasks[currentTop & config::GetMaxTaskCountMask()];
+        TaskHandle task = tasks[currentTop & config::GetMaxTaskCountMask()];
 
         // the interlocked function serves as a compiler barrier, and guarantees that the read happens before the CAS.
         if (!top.compare_exchange_strong(currentTop, currentTop + 1, std::memory_order_seq_cst, std::memory_order_relaxed))
         {
             // a concurrent steal or pop operation removed an element from the deque in the meantime.
-            return nullptr;
+            return NullTask;
         }
 
         return task;
@@ -80,7 +80,7 @@ Task* WorkStealingQueue::Steal()
     else
     {
         // empty queue
-        return nullptr;
+        return NullTask;
     }
 }
 

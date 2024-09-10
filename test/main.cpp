@@ -17,70 +17,6 @@ public:
     ~TestFixture() { taskmanager::Stop(); }
 };
 
-// Benchmark to check implementation is not slower than async
-static constexpr auto benchmark_n_time = 1000;
-static constexpr auto benchmark_thread_count = 4;
-void bench_method(double start)
-{
-    static double tmp = start;
-    for (int j = 0; j < benchmark_n_time; j++)
-    {
-        tmp = std::sqrt(tmp);
-    }
-}
-
-TEST_CASE("Benchmark thread overhead") 
-{
-    // --------------------------------------------
-    // Using future
-    auto start = steady_clock::now();
-    std::array<std::future<void>, benchmark_thread_count> futures;
-
-    // Start threads
-    for (int i = 0; i < futures.size(); i++)
-    {
-        futures[i] = std::async(std::launch::async, [](int i)
-        {
-            bench_method(i);
-        }, i);
-    }
-
-    // Wait
-    for (int i = 0; i < futures.size(); i++)
-    {
-        futures[i].get();
-    }
-
-    // Get time
-    auto time_for_future = steady_clock::now() - start;
-    std::cout << "time for future: " << duration_cast<microseconds>(time_for_future).count() / 1000. << "ms" << std::endl;
-
-    // --------------------------------------------
-    // Using taskmanager
-    taskmanager::Start(benchmark_thread_count);
-    start = steady_clock::now();
-
-    // Start threads
-    auto parent = taskmanager::CreateTask();
-    for (int i = 0; i < benchmark_thread_count; i++) 
-    {
-        auto task = taskmanager::CreateChildTask(parent, [i](auto, auto)
-        {
-            bench_method(i);
-        });
-        taskmanager::Run(task);
-    }
-
-    // Wait
-    taskmanager::Run(parent);
-    taskmanager::Wait(parent);
-
-    // Get time
-    auto time_for_taskmanager = steady_clock::now() - start;
-    std::cout << "time for taskmanager: " << duration_cast<microseconds>(time_for_taskmanager).count() / 1000. << "ms" << std::endl;
-    taskmanager::Stop();
-}
-
 TEST_CASE("StartAndStop") 
 {
     taskmanager::Start(1);
@@ -114,8 +50,6 @@ TEST_CASE_FIXTURE(TestFixture, "SequencedTasks")
 
 TEST_CASE_FIXTURE(TestFixture, "BatchTasks")
 {
-    auto start = steady_clock::now();
-
     auto parent = taskmanager::CreateTask();
     std::array<int, 4000> values { 0 };
     for (size_t i = 0; i < values.size(); i++)
@@ -134,9 +68,6 @@ TEST_CASE_FIXTURE(TestFixture, "BatchTasks")
     {
         CHECK(value == 2);
     }
-
-    auto elapsed = steady_clock::now() - start;
-    std::cout << "time for batch: " << duration_cast<microseconds>(elapsed).count() / 1000. << "ms" << std::endl;
 }
 
 TEST_CASE_FIXTURE(TestFixture, "LambdaTest1")
@@ -144,7 +75,7 @@ TEST_CASE_FIXTURE(TestFixture, "LambdaTest1")
     auto parent = taskmanager::CreateTask();
     auto last = parent;
     std::atomic<int> total = 2;
-    std::vector<taskmanager::Task*> tasks;
+    std::vector<taskmanager::TaskHandle> tasks;
     for (int i = 0; i < 1000; i++)
     {
         last = taskmanager::CreateChildTask(last, [&total, i](auto, auto) 
@@ -171,8 +102,6 @@ TEST_CASE_FIXTURE(TestFixture, "Pinned")
         taskmanager::SetExecuteOnlyPinnedTasks(i, true);
     }
 
-    auto start = steady_clock::now();
-
     for (int i = 0; i < 1000; i++)
     {
         auto parent = taskmanager::CreateTask();
@@ -191,8 +120,37 @@ TEST_CASE_FIXTURE(TestFixture, "Pinned")
         taskmanager::Wait(parent);
     }
 
-    auto elapsed = steady_clock::now() - start;
-    std::cout << "time for pinned: " << duration_cast<microseconds>(elapsed).count() / 1000. << "ms" << std::endl;
+    for (int i = 0; i < std::thread::hardware_concurrency(); i++)
+    {
+        taskmanager::SetExecuteOnlyPinnedTasks(i, false);
+    }
+}
+
+TEST_CASE_FIXTURE(TestFixture, "Continuation")
+{
+    std::atomic<int> value = 0;
+    auto taskFunction = [&value](auto, auto)
+    {
+        value.fetch_add(1);
+    };
+
+    auto parent = taskmanager::CreateTask(taskFunction);
+    std::vector<taskmanager::TaskHandle> tasks(16);
+
+    for (size_t i = 0; i < tasks.size(); i++)
+    {
+        tasks[i] = taskmanager::CreateTask(taskFunction);
+        taskmanager::AddContinuation(parent, tasks[i], i % 2 == 0);
+    }
+
+    taskmanager::Run(parent);
+
+    for (size_t i = 0; i < tasks.size(); i++)
+    {
+        taskmanager::Wait(tasks[i]);
+    }
+
+    CHECK(value.load() == 17);
 }
 
 TEST_CASE_FIXTURE(TestFixture, "ComputeScore")

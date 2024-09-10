@@ -25,14 +25,14 @@ void WorkerThread::Run()
 void WorkerThread::TryExecuteOnTask(bool executeOnlyPinnedTasks, bool useSemaphore)
 {
     // Execute in priority the pinned tasks
-    if (Task* task = GetPinnedTaskQueue()->Pop(useSemaphore))
+    if (TaskHandle task = GetPinnedTaskQueue()->Pop(useSemaphore))
     {
         Execute(task);
     }
     // If we can, execute tasks from work stealing queues
     else if (!executeOnlyPinnedTasks)
     {
-        if (Task* task = GetOrStealTask())
+        if (TaskHandle task = GetOrStealTask())
         {
             Execute(task);
         }
@@ -76,7 +76,7 @@ PinnedTaskQueue* WorkerThread::GetPinnedTaskQueue()
     return PinnedTaskQueues::Get(WorkerThread::GetThreadIndex());
 }
 
-void WorkerThread::Enqueue(Task* task)
+void WorkerThread::Enqueue(TaskHandle task)
 {
     // If this task can be executed by any thread, push it in the curren thread
     if (task->threadIndex == AnyThreadIndex)
@@ -90,10 +90,10 @@ void WorkerThread::Enqueue(Task* task)
     }
 }
 
-Task* WorkerThread::GetOrStealTask()
+TaskHandle WorkerThread::GetOrStealTask()
 {
     WorkStealingQueue* queue = GetWorkStealingQueue();
-    Task* task = queue->Pop();
+    TaskHandle task = queue->Pop();
     if (!task)
     {
         // This is not a valid job because our own queue is empty, so try stealing from some other queue
@@ -102,14 +102,14 @@ Task* WorkerThread::GetOrStealTask()
         if (queueToSteal == queue)
         {
             // Don't try to steal from ourselves
-            return nullptr;
+            return NullTask;
         }
 
-        Task* stolenTask = queueToSteal->Steal();
+        TaskHandle stolenTask = queueToSteal->Steal();
         if (!stolenTask)
         {
             // We couldn't steal a job from the other queue either, so we just yield our time slice for now
-            return nullptr;
+            return NullTask;
         }
 
         return stolenTask;
@@ -118,8 +118,9 @@ Task* WorkerThread::GetOrStealTask()
     return task;
 }
 
-void WorkerThread::Finish(Task* task)
+void WorkerThread::Finish(TaskHandle task)
 {
+    // Finish and signal to parent
     const int remaining = task->remaining.fetch_sub(1, std::memory_order_relaxed);
     assert(remaining > 0);
     if (remaining == 1 && task->parent)
@@ -127,19 +128,35 @@ void WorkerThread::Finish(Task* task)
         Finish(task->parent);
     }
 
+    // Handle continuations
     const uint8_t continuationCount = task->continuationCount.load(std::memory_order_acquire);
+    const uint16_t continuationInlining = task->continuationInlining.load(std::memory_order_relaxed);
+
+    // Push non inlined continuations to queue
     for (uint8_t i = 0; i < continuationCount; i++)
     {
-        Enqueue(task->continuationTasks[i]);
+        if ((continuationInlining & (1 << i)) == 0)
+        {
+            Enqueue(task->continuationTasks[i]);
+        }
+    }
+
+    // Execute inlined continuations
+    for (uint8_t i = 0; i < continuationCount; i++)
+    {
+        if (continuationInlining & (1 << i))
+        {
+            Execute(task->continuationTasks[i]);
+        }
     }
 }
 
-void WorkerThread::Execute(Task* task)
+void WorkerThread::Execute(TaskHandle task)
 {
     assert(task->threadIndex == AnyThreadIndex || task->threadIndex == GetThreadIndex());
     if (task->function)
     {
-        task->function(task, task->data);
+        task->function(task, task->userData);
     }
     Finish(task);
 }

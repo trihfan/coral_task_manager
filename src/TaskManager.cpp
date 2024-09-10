@@ -66,61 +66,69 @@ bool IsExecuteOnlyPinnedTasks(uint8_t threadId)
     }
 }
 
-void Run(Task* task)
+void Run(TaskHandle task)
 {
     WorkerThread::Enqueue(task);
 }
 
-void Run(Task* task, uint8_t threadIndex)
+void Run(TaskHandle task, uint8_t threadIndex)
 {
     task->threadIndex = threadIndex;
     WorkerThread::Enqueue(task);
 }
 
-void RunAndWait(Task* task)
+void RunAndWait(TaskHandle task)
 {
     Run(task);
     Wait(task);
 }
 
-void RunAndWait(Task* task, uint8_t threadIndex)
+void RunAndWait(TaskHandle task, uint8_t threadIndex)
 {
     Run(task, threadIndex);
     Wait(task);
 }
 
-Task* CreateTask(std::function<void(Task*, void*)>&& function)
+TaskHandle CreateTask(std::function<void(TaskHandle, void*)>&& function)
 {
-    Task* task = TaskBuffer::Allocate();
+    TaskHandle task = TaskBuffer::Allocate();
     task->function = std::move(function);
-    task->parent = nullptr;
+    task->parent.id = 0;
     task->remaining.store(1, std::memory_order_relaxed);
+    task->continuationCount.store(0, std::memory_order_relaxed);
+    task->continuationInlining.store(0, std::memory_order_relaxed);
     return task;
 }
 
-void SetParentTask(Task* parent, Task* child)
+void SetParentTask(TaskHandle parent, TaskHandle child)
 {
     child->parent = parent;
-    parent->remaining.fetch_add(1, std::memory_order_relaxed);
+    uint16_t count = parent->remaining.fetch_add(1, std::memory_order_relaxed);
+    assert(count < std::numeric_limits<uint16_t>::max());
 }
 
 // Create a task as a child of the given parent
-Task* CreateChildTask(Task* parent, std::function<void(Task*, void*)>&& function)
+TaskHandle CreateChildTask(TaskHandle parent, std::function<void(TaskHandle, void*)>&& function)
 {
-    Task* task = CreateTask(std::forward<std::function<void(Task*, void*)>>(function));
+    TaskHandle task = CreateTask(std::forward<std::function<void(TaskHandle, void*)>>(function));
     SetParentTask(parent, task);
     return task;
 }
 
-void AddContinuation(Task* task, Task* continuation)
+void AddContinuation(TaskHandle task, TaskHandle continuation, bool inlineTask)
 {
     assert(!IsFinished(task));
     uint8_t index = task->continuationCount.fetch_add(1);
     assert(index < std::numeric_limits<uint8_t>::max());
-    task->continuationTasks[index] = task;
+    task->continuationTasks[index] = continuation;
+
+    if (inlineTask)
+    {
+        task->continuationInlining.fetch_add(1 << index);
+    }
 }
 
-bool IsFinished(const Task* task)
+bool IsFinished(TaskHandle task)
 {
     return task->remaining.load(std::memory_order_relaxed) <= 0;
 }
@@ -130,7 +138,7 @@ namespace internal
     inline void Wait() {}
 
     template <typename... Tasks>
-    inline void Wait(Task* task, Tasks&&... tasks)
+    inline void Wait(TaskHandle task, Tasks&&... tasks)
     {
         while (!IsFinished(task))
         {
@@ -140,16 +148,16 @@ namespace internal
     }
 }
 
-void Wait(std::initializer_list<Task*> tasks)
+void Wait(std::initializer_list<TaskHandle> tasks)
 {
-    for (Task* task : tasks)
+    for (TaskHandle task : tasks)
     {
         internal::Wait(task);
     }
 }
 
 template <typename... Tasks>
-void Wait(Task* task, Tasks&&... tasks)
+void Wait(TaskHandle task, Tasks&&... tasks)
 {
     internal::Wait(task, std::forward<Tasks>(tasks)...);
 }

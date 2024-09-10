@@ -4,6 +4,7 @@
 #include <vector>
 #include <semaphore>
 #include "Config.h"
+#include "Task.h"
 
 namespace coral::taskmanager
 {
@@ -19,12 +20,13 @@ namespace coral::taskmanager
         PinnedTaskQueue(size_t bufferSize);
 
         // Push and pop tasks
-        void Push(Task* task);
-        Task* Pop(bool waitForSemaphore); 
+        void Push(TaskHandle task);
+        TaskHandle Pop(bool waitForSemaphore); 
 
-    // 
+        // Clear the queue
         void Clear();
 
+        // On cancel, signal the semaphore to prevent infinite wait
         void Cancel() { semaphore.release(); }
 
     private:
@@ -32,7 +34,7 @@ namespace coral::taskmanager
 
         struct PinnedTaskQueueLeaf
         {
-            Task* task;
+            TaskHandle task;
             std::atomic<PinnedTaskQueueLeaf*> next;
         };
 
