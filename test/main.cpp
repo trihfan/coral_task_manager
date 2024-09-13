@@ -128,18 +128,20 @@ TEST_CASE_FIXTURE(TestFixture, "Pinned")
 
 TEST_CASE_FIXTURE(TestFixture, "Continuation")
 {
-    std::atomic<int> value = 0;
-    auto taskFunction = [&value](auto, auto)
-    {
-        value.fetch_add(1);
-    };
+    using UserData = taskmanager::UserData<std::atomic<int>*>;
 
-    auto parent = taskmanager::CreateTask(taskFunction);
+    std::atomic<int> value = 0;
+
+    auto parent = taskmanager::CreateTask([](auto, void* data) { UserData::Get<0>(data)->fetch_add(1); });
+    UserData::Get<0>(parent->userData) = &value;
+    
     std::vector<taskmanager::TaskHandle> tasks(16);
 
     for (size_t i = 0; i < tasks.size(); i++)
     {
-        tasks[i] = taskmanager::CreateTask(taskFunction);
+        tasks[i] = taskmanager::CreateTask([](auto, void* data) { UserData::Get<0>(data)->fetch_add(1); });
+        UserData::Get<0>(tasks[i]->userData) = &value;
+
         taskmanager::AddContinuation(parent, tasks[i], i % 2 == 0);
     }
 

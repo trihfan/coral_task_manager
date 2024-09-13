@@ -11,7 +11,7 @@ WorkStealingQueue::WorkStealingQueue(size_t size)
 void WorkStealingQueue::Push(TaskHandle task)
 {
     int64_t currentBottom = bottom.load(std::memory_order_relaxed);
-    tasks[currentBottom & config::GetMaxTaskCountMask()] = task;
+    tasks[currentBottom & Config::GetMaxTaskCountMask()] = task;
 
     // ensure the job is written before b+1 is published to other threads.
     // on x86/64, a compiler barrier is enough.
@@ -30,12 +30,12 @@ TaskHandle WorkStealingQueue::Pop()
     if (currentTop < currentBottom)
     {
         // non-empty queue
-        return tasks[currentBottom & config::GetMaxTaskCountMask()];
+        return tasks[currentBottom & Config::GetMaxTaskCountMask()];
     }
     else if (currentTop == currentBottom)
     {
         // this is the last item in the queue
-        TaskHandle task = tasks[currentBottom & config::GetMaxTaskCountMask()];
+        TaskHandle task = tasks[currentBottom & Config::GetMaxTaskCountMask()];
         const int64_t desired = currentTop + 1;
         if (!top.compare_exchange_strong(currentTop, desired, std::memory_order_seq_cst, std::memory_order_relaxed))
         {
@@ -66,7 +66,7 @@ TaskHandle WorkStealingQueue::Steal()
     if (currentTop < currentBottom)
     {
         // non-empty queue
-        TaskHandle task = tasks[currentTop & config::GetMaxTaskCountMask()];
+        TaskHandle task = tasks[currentTop & Config::GetMaxTaskCountMask()];
 
         // the interlocked function serves as a compiler barrier, and guarantees that the read happens before the CAS.
         if (!top.compare_exchange_strong(currentTop, currentTop + 1, std::memory_order_seq_cst, std::memory_order_relaxed))
@@ -104,7 +104,7 @@ void WorkStealingQueues::Init(size_t size)
     queues.resize(size);
     for (size_t i = 0; i < size; i++)
     {
-        queues[i] = new WorkStealingQueue(config::GetMaxTaskCount());
+        queues[i] = new WorkStealingQueue(Config::GetMaxTaskCount());
     }
 }
 

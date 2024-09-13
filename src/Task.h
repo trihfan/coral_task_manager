@@ -28,8 +28,20 @@ namespace coral::taskmanager
         TaskData* data = nullptr;
     #endif
     };
-    static constexpr size_t TaskSize = sizeof(TaskHandle);
 
+    // Helper for user data
+    template <typename... Items>
+    struct UserData
+    {
+        template <size_t Index>
+        static auto& Get(void* data) 
+        { 
+            auto tuple = reinterpret_cast<std::tuple<Items...>*>(data);
+            return std::get<Index>(*tuple);
+        }
+    };
+    
+    // Constants
     static constexpr TaskHandle NullTask;
     static constexpr uint8_t AnyThreadIndex = std::numeric_limits<uint8_t>::max();
 
@@ -42,15 +54,17 @@ namespace coral::taskmanager
         uint8_t threadIndex = AnyThreadIndex;               // Thread index to execute the task
         std::atomic<uint8_t> continuationCount;             // Number of tasks to start after this one
         std::array<TaskHandle, 16> continuationTasks;       // Tasks to start after this one 
-        void* userData;                                     // User defined task data   
         std::atomic<uint8_t> continuationInlining;          // Flag to inline a continuation task (-> the task will be executed by the same thread without going to the task queue)
-        char padding[15];                                                 
+        char userData[Config::TaskUserDataSizeBytes];    // User defined task data                                        
     };
 
     // asserts
 #ifdef NDEBUG
+    static constexpr size_t TaskHandleSize = sizeof(TaskHandle);
+    static_assert(TaskHandleSize == 2, "Wrong task handle size");
+
     static constexpr size_t TaskDataSize = sizeof(TaskData);
-    static_assert(TaskDataSize == config::TaskSizeBytes, "Wrong task size");
+    static_assert(TaskDataSize == Config::TaskSizeBytes, "Wrong task size");
 #endif
     static_assert(std::atomic<uint32_t>::is_always_lock_free, "uint32_t is not lock free");
 }

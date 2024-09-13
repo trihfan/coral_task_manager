@@ -17,7 +17,7 @@ void PinnedTaskQueue::Push(TaskHandle task)
     #endif
 
     // Allocate a leaf from free list
-    PinnedTaskQueueLeaf* leaf = &buffer[index.fetch_add(1, std::memory_order_relaxed) & config::GetMaxTaskCountMask()];
+    PinnedTaskQueueLeaf* leaf = &buffer[index.fetch_add(1, std::memory_order_relaxed) & Config::GetMaxTaskCountMask()];
     leaf->task = task;
 
     // Add leaf
@@ -110,7 +110,7 @@ void PinnedTaskQueues::Init(size_t size)
 
     for (size_t i = 0; i < queues.size(); i++)
     {
-        queues[i] = new PinnedTaskQueue(config::GetMaxTaskCount());
+        queues[i] = new PinnedTaskQueue(Config::GetMaxTaskCount());
     }
 }
 

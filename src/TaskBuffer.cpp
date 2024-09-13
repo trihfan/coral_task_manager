@@ -19,7 +19,7 @@ namespace internal
 // TaskBuffer methods
 void TaskBuffer::Init(size_t threadCount)
 {
-    internal::TaskBuffer = new TaskData[config::GetMaxTaskCount() * threadCount];
+    internal::TaskBuffer = new TaskData[Config::GetMaxTaskCount() * threadCount];
     internal::TaskBufferIndices.resize(threadCount, 0);
 }
 
@@ -34,7 +34,7 @@ TaskHandle TaskBuffer::Allocate()
     TaskHandle handle;
 
     const auto thread = WorkerThread::GetThreadIndex();
-    handle.id = thread * config::GetMaxTaskCount() + (internal::TaskBufferIndices[thread]++ & config::GetMaxTaskCountMask()) + 1;
+    handle.id = thread * Config::GetMaxTaskCount() + (internal::TaskBufferIndices[thread]++ & Config::GetMaxTaskCountMask()) + 1;
     assert(internal::TaskBuffer[handle.id - 1].remaining == 0);
 
 #ifndef NDEBUG
