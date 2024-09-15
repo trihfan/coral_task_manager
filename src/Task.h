@@ -46,7 +46,7 @@ namespace coral::taskmanager
     static constexpr uint8_t AnyThreadIndex = std::numeric_limits<uint8_t>::max();
 
     // The task struct, contains the function and the data
-    struct alignas(std::hardware_destructive_interference_size) TaskData
+    struct alignas(64) TaskData
     {
         std::function<void(TaskHandle, void*)> function;    // The task function 
         TaskHandle parent;                                  // Optional task parent
